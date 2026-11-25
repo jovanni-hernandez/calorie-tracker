@@ -1,7 +1,7 @@
 name: "HA Calorie Tracker"
 slug: "ha_calorie_tracker"
 description: "Mobile-first UPC and nutrition-label calorie tracker"
-version: "0.1.0"
+version: "0.1.1"
 startup: application
 boot: auto
 init: false
@@ -16,6 +16,6 @@ options:
   usda_api_key: ""
   timezone: America/New_York
 schema:
-  api_token: password
+  api_token: password?
   usda_api_key: password
   timezone: str

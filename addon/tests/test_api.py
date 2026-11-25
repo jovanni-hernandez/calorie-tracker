@@ -90,13 +90,33 @@ def test_authenticated_user_scoped_meals(client: TestClient) -> None:
     assert other_user_meals.json() == []
 
 
-def test_missing_api_token_is_rejected(client: TestClient) -> None:
-    """The add-on API is inaccessible without the integration token."""
+def test_missing_api_token_is_rejected_when_configured(client: TestClient) -> None:
+    """A configured token remains mandatory on authenticated API routes."""
     response = client.get(
         "/api/v1/me",
         headers={"X-HA-User-ID": "user-1"},
     )
     assert response.status_code == 401
+
+
+def test_tokenless_mode_accepts_local_requests(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With token auth disabled, local callers can use API routes without a token."""
+    from calorie_tracker.config import get_settings
+
+    monkeypatch.setenv("CALORIE_API_TOKEN", "")
+    get_settings.cache_clear()
+    try:
+        response = client.get(
+            "/api/v1/me",
+            headers={"X-HA-User-ID": "tokenless-user"},
+        )
+        sensor_response = client.get("/api/v1/profiles")
+        assert response.status_code == 200
+        assert sensor_response.status_code == 200
+    finally:
+        get_settings.cache_clear()
 
 
 def test_barcode_cache_avoids_repeated_provider_calls(

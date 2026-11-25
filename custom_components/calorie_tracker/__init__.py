@@ -70,13 +70,15 @@ class CalorieTrackerView(HomeAssistantView):
             return web.json_response({"detail": "Not found"}, status=404)
         backend_url = str(connection[CONF_BACKEND_URL]).rstrip("/")
         target = URL(f"{backend_url}/{path}").with_query(request.query_string)
+        token = str(connection.get(CONF_API_TOKEN, ""))
         headers = {
-            "X-API-Token": str(connection[CONF_API_TOKEN]),
             "X-HA-User-ID": user.id,
             "X-HA-User-Name": str(user.name or "Home Assistant user"),
             "X-HA-Timezone": self._hass.config.time_zone,
             "Content-Type": request.headers.get("Content-Type", "application/json"),
         }
+        if token:
+            headers["X-API-Token"] = token
         body = await request.read()
         try:
             async with self._session.request(

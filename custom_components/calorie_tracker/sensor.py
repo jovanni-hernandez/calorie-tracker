@@ -56,7 +56,8 @@ async def async_setup_entry(
     """Create total sensors for all profiles and refresh periodically."""
     session = async_get_clientsession(hass)
     backend_url = str(entry.data[CONF_BACKEND_URL]).rstrip("/")
-    headers = {"X-API-Token": str(entry.data[CONF_API_TOKEN])}
+    token = str(entry.data.get(CONF_API_TOKEN, ""))
+    headers = {"X-API-Token": token} if token else {}
 
     async def async_update_data() -> CoordinatorData:
         async with session.get(

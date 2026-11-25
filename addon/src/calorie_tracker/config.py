@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="CALORIE_", extra="ignore")
 
     database_url: str = "sqlite:////data/calorie_tracker.db"
-    api_token: SecretStr = SecretStr("development-only-change-me")
+    api_token: SecretStr = SecretStr("")
     usda_api_key: SecretStr = SecretStr("")
     timezone: str = "UTC"
 

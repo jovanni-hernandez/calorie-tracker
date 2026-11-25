@@ -3,10 +3,10 @@
     "step": {
       "user": {
         "title": "Connect to the Calorie Tracker add-on",
-        "description": "Enter the add-on's private network URL and the same API token configured in its options.",
+        "description": "Enter the add-on's private network URL. An API token is optional; if set, it must match the add-on configuration.",
         "data": {
           "backend_url": "Add-on backend URL",
-          "api_token": "Private API token"
+          "api_token": "Optional API token"
         }
       }
     },

@@ -56,7 +56,7 @@ def authenticated_user(
 ) -> AuthenticatedUser:
     """Authenticate the companion integration and require its HA user context."""
     expected = get_settings().api_token.get_secret_value()
-    if not expected or x_api_token is None or not secrets.compare_digest(x_api_token, expected):
+    if expected and (x_api_token is None or not secrets.compare_digest(x_api_token, expected)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
     if not x_ha_user_id:
         raise HTTPException(
@@ -345,7 +345,7 @@ def profiles_for_sensors(
 ) -> list[dict[str, Any]]:
     """Return profile identifiers for the trusted HA integration sensor platform."""
     expected = get_settings().api_token.get_secret_value()
-    if x_api_token is None or not secrets.compare_digest(x_api_token, expected):
+    if expected and (x_api_token is None or not secrets.compare_digest(x_api_token, expected)):
         raise HTTPException(status_code=401, detail="Unauthorized")
     return [
         {
@@ -366,7 +366,7 @@ def totals_for_sensor(
 ) -> dict[str, float]:
     """Return totals for an integration-owned sensor."""
     expected = get_settings().api_token.get_secret_value()
-    if x_api_token is None or not secrets.compare_digest(x_api_token, expected):
+    if expected and (x_api_token is None or not secrets.compare_digest(x_api_token, expected)):
         raise HTTPException(status_code=401, detail="Unauthorized")
     profile = session.get(Profile, profile_id)
     if profile is None:
