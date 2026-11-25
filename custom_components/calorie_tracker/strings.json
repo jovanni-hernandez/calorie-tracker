@@ -1,0 +1,20 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to the Calorie Tracker add-on",
+        "description": "Enter the add-on's private network URL and the same API token configured in its options.",
+        "data": {
+          "backend_url": "Add-on backend URL",
+          "api_token": "Private API token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect or the API token was rejected."
+    },
+    "abort": {
+      "already_configured": "The Calorie Tracker add-on is already configured."
+    }
+  }
+}
