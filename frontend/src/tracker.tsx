@@ -45,6 +45,66 @@ interface Profile {
   fat_target_g: number;
 }
 
+type GoalMethod = "calculated" | "manual";
+type WeightUnit = "lb" | "kg";
+
+interface WeightGoalData {
+  current_weight_kg: number;
+  target_weight_kg: number;
+  pace_kg_per_week: number;
+  method: GoalMethod;
+  manual_calorie_target_kcal: number | null;
+  age_years: number | null;
+  height_cm: number | null;
+  sex_parameter: "male" | "female" | null;
+  activity_level: number | null;
+}
+
+interface WeightGoal {
+  id: number;
+  goal_type: string;
+  status: string;
+  goal_data: WeightGoalData;
+  created_at: string;
+}
+
+interface WeightCheckIn {
+  id: number;
+  measured_on: string;
+  weight_kg: number;
+}
+
+interface WeightGoalPlan {
+  method: GoalMethod;
+  calorie_target_kcal: number | null;
+  duration_days: number;
+  estimated_end_date: string;
+  projected_weight_kg: number | null;
+  model_note: string;
+  source: string | null;
+}
+
+interface CurrentGoal {
+  goal: WeightGoal | null;
+  check_ins: WeightCheckIn[];
+  latest_plan: WeightGoalPlan | null;
+  plan_error: string | null;
+}
+
+interface WeightGoalRequest {
+  current_weight_kg: number;
+  target_weight_kg: number;
+  pace_kg_per_week: number;
+  method: GoalMethod;
+  manual_calorie_target_kcal: number | null;
+  age_years: number | null;
+  height_cm: number | null;
+  sex_parameter: "male" | "female" | null;
+  activity_level: number | null;
+  adult_confirmed: boolean;
+  not_pregnant_or_breastfeeding: boolean;
+}
+
 interface Meal {
   id: number;
   consumed_at: string;
@@ -136,6 +196,13 @@ const api = <T,>(
 ): Promise<T> => hass.callApi<T>(method, `calorie_tracker/api/v1/${path}`, data);
 
 const metric = (value: number): string => Math.round(value).toLocaleString();
+const kilogramsPerPound = 2.2046226218;
+
+const displayWeight = (weightKg: number, unit: WeightUnit): string =>
+  `${(unit === "lb" ? weightKg * kilogramsPerPound : weightKg).toFixed(1)} ${unit}`;
+
+const parseWeight = (value: string, unit: WeightUnit): number =>
+  Number(value) / (unit === "lb" ? kilogramsPerPound : 1);
 
 const providerStatusLabel: Record<ProviderStatus, string> = {
   found: "Match found",
@@ -177,6 +244,34 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [labelOpen, setLabelOpen] = useState(false);
   const [targetsOpen, setTargetsOpen] = useState(false);
+  const [currentGoal, setCurrentGoal] = useState<CurrentGoal | null>(null);
+  const [goalOpen, setGoalOpen] = useState(false);
+  const [goalMethod, setGoalMethod] = useState<GoalMethod>("calculated");
+  const [goalWeightUnit, setGoalWeightUnit] = useState<WeightUnit>("lb");
+  const [goalPreview, setGoalPreview] = useState<WeightGoalPlan | null>(null);
+  const [goalDraft, setGoalDraft] = useState<WeightGoalRequest | null>(null);
+  const [goalMessage, setGoalMessage] = useState("");
+  const [goalBusy, setGoalBusy] = useState(false);
+  const [checkInWeight, setCheckInWeight] = useState("");
+  const goalFormRef = useRef<HTMLFormElement | null>(null);
+
+  const changeWeightUnit = (unit: WeightUnit): void => {
+    if (unit === goalWeightUnit) return;
+    const convert = (value: number): number =>
+      unit === "lb" ? value * kilogramsPerPound : value / kilogramsPerPound;
+    if (goalFormRef.current) {
+      for (const name of ["current_weight", "target_weight", "pace"]) {
+        const input = goalFormRef.current.elements.namedItem(name);
+        if (input instanceof HTMLInputElement && input.value) {
+          input.value = convert(Number(input.value)).toFixed(1);
+        }
+      }
+    }
+    if (checkInWeight) setCheckInWeight(convert(Number(checkInWeight)).toFixed(1));
+    setGoalWeightUnit(unit);
+    setGoalPreview(null);
+    setGoalDraft(null);
+  };
 
   const reload = useCallback(async () => {
     try {
@@ -190,6 +285,12 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
       setTotals(dayTotals);
       setMeals(dayMeals);
       setProducts(catalog);
+      try {
+        setCurrentGoal(await api<CurrentGoal>(hass, "GET", "goals/current"));
+      } catch {
+        // Keep the rest of the tracker usable during a staged backend update.
+        setCurrentGoal(null);
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load tracker data.");
     }
@@ -338,6 +439,135 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
     }
   };
 
+  const goalRequestFromForm = (): WeightGoalRequest | null => {
+    const form = goalFormRef.current;
+    if (!form || !form.reportValidity()) return null;
+    const data = new FormData(form);
+    const weight = (name: string): number =>
+      parseWeight(String(data.get(name) ?? ""), goalWeightUnit);
+    return {
+      current_weight_kg: weight("current_weight"),
+      target_weight_kg: weight("target_weight"),
+      pace_kg_per_week: weight("pace"),
+      method: goalMethod,
+      manual_calorie_target_kcal:
+        goalMethod === "manual" ? Number(data.get("manual_calories")) : null,
+      age_years: goalMethod === "calculated" ? Number(data.get("age_years")) : null,
+      height_cm: goalMethod === "calculated" ? Number(data.get("height_cm")) : null,
+      sex_parameter:
+        goalMethod === "calculated"
+          ? (String(data.get("sex_parameter")) as "male" | "female")
+          : null,
+      activity_level: goalMethod === "calculated" ? Number(data.get("activity_level")) : null,
+      adult_confirmed: data.get("adult_confirmed") === "on",
+      not_pregnant_or_breastfeeding: data.get("not_pregnant_or_breastfeeding") === "on",
+    };
+  };
+
+  const previewGoal = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    const payload = goalRequestFromForm();
+    if (!payload) return;
+    setGoalBusy(true);
+    setGoalMessage("");
+    try {
+      const preview = await api<WeightGoalPlan>(hass, "POST", "goals/preview", payload);
+      setGoalDraft(payload);
+      setGoalPreview(preview);
+    } catch (error) {
+      setGoalPreview(null);
+      setGoalDraft(null);
+      setGoalMessage(error instanceof Error ? error.message : "Could not calculate this plan.");
+    } finally {
+      setGoalBusy(false);
+    }
+  };
+
+  const createGoal = async (): Promise<void> => {
+    if (!goalDraft || !goalPreview) return;
+    setGoalBusy(true);
+    try {
+      await api<WeightGoal>(hass, "POST", "goals", goalDraft);
+      setGoalOpen(false);
+      setGoalPreview(null);
+      setGoalDraft(null);
+      setGoalMessage("Weight-loss goal saved. Review the calorie target before applying it.");
+      await reload();
+    } catch (error) {
+      setGoalMessage(error instanceof Error ? error.message : "Could not save this goal.");
+    } finally {
+      setGoalBusy(false);
+    }
+  };
+
+  const applyGoalTarget = async (): Promise<void> => {
+    const calorieTarget = currentGoal?.latest_plan?.calorie_target_kcal;
+    if (!profile || calorieTarget === null || calorieTarget === undefined) return;
+    setGoalBusy(true);
+    try {
+      const updated = await api<Profile>(hass, "PUT", "me/targets", {
+        calorie_target: calorieTarget,
+        protein_target_g: profile.protein_target_g,
+        carbs_target_g: profile.carbs_target_g,
+        fat_target_g: profile.fat_target_g,
+      });
+      setProfile(updated);
+      setGoalMessage("Calorie target applied after your review.");
+      await reload();
+    } catch (error) {
+      setGoalMessage(error instanceof Error ? error.message : "Could not apply this target.");
+    } finally {
+      setGoalBusy(false);
+    }
+  };
+
+  const saveWeightCheckIn = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    if (!checkInWeight.trim()) return;
+    setGoalBusy(true);
+    try {
+      await api<WeightCheckIn>(hass, "PUT", "goals/current/check-ins", {
+        measured_on: todayLocal(hass.config?.time_zone),
+        weight_kg: parseWeight(checkInWeight, goalWeightUnit),
+      });
+      setCheckInWeight("");
+      setGoalMessage("Weekly weight check-in saved. Review any updated suggestion below.");
+      await reload();
+    } catch (error) {
+      setGoalMessage(error instanceof Error ? error.message : "Could not save your check-in.");
+    } finally {
+      setGoalBusy(false);
+    }
+  };
+
+  const cancelGoal = async (): Promise<void> => {
+    if (!window.confirm("Cancel this goal? Its history and weigh-ins will be kept.")) return;
+    setGoalBusy(true);
+    try {
+      await api<WeightGoal>(hass, "DELETE", "goals/current");
+      setGoalMessage("Goal cancelled. You can create another goal now.");
+      await reload();
+    } catch (error) {
+      setGoalMessage(error instanceof Error ? error.message : "Could not cancel this goal.");
+    } finally {
+      setGoalBusy(false);
+    }
+  };
+
+  const completeGoal = async (): Promise<void> => {
+    if (!window.confirm("Mark this goal complete? Its history and weigh-ins will be kept.")) return;
+    setGoalBusy(true);
+    try {
+      await api<WeightGoal>(hass, "POST", "goals/current/complete");
+      setGoalMessage("Goal completed. You can create another goal now.");
+      await reload();
+    } catch (error) {
+      setGoalMessage(error instanceof Error ? error.message : "Could not complete this goal.");
+    } finally {
+      setGoalBusy(false);
+    }
+  };
+
   const saveProductFacts = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (!selected) return;
@@ -415,6 +645,22 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
     selected.protein_g !== null &&
     selected.carbs_g !== null &&
     selected.fat_g !== null;
+  const activeWeightGoal =
+    currentGoal?.goal?.goal_type === "weight_loss" ? currentGoal.goal : null;
+  const activeGoalData = activeWeightGoal?.goal_data;
+  const currentGoalWeightKg =
+    currentGoal?.check_ins[0]?.weight_kg ?? activeGoalData?.current_weight_kg ?? null;
+  const goalProgress = activeGoalData && currentGoalWeightKg !== null
+    ? Math.min(
+        100,
+        Math.max(
+          0,
+          ((activeGoalData.current_weight_kg - currentGoalWeightKg) /
+            (activeGoalData.current_weight_kg - activeGoalData.target_weight_kg)) *
+            100,
+        ),
+      )
+    : 0;
 
   return (
     <main className="tracker">
@@ -440,6 +686,173 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
         <h1>Today</h1>
         <p className="intro-copy">A little awareness goes a long way, {profile?.display_name ?? "there"}.</p>
       </section>
+
+      {currentGoal && (
+        <section className="goal-card" aria-label="Your current goal">
+          {activeWeightGoal && activeGoalData ? (
+            <>
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">ONE ACTIVE GOAL</p>
+                  <h2>Weight loss</h2>
+                  <p className="muted">
+                    {displayWeight(activeGoalData.current_weight_kg, goalWeightUnit)} to{" "}
+                    {displayWeight(activeGoalData.target_weight_kg, goalWeightUnit)} · about{" "}
+                    {(activeGoalData.pace_kg_per_week *
+                      (goalWeightUnit === "lb" ? kilogramsPerPound : 1)).toFixed(1)}{" "}
+                    {goalWeightUnit}/week
+                  </p>
+                </div>
+                <div className="goal-actions">
+                  <button
+                    className="text-button"
+                    type="button"
+                    onClick={() => void completeGoal()}
+                    disabled={goalBusy}
+                  >
+                    Complete
+                  </button>
+                  <button
+                    className="text-button"
+                    type="button"
+                    onClick={() => void cancelGoal()}
+                    disabled={goalBusy}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+              <div className="goal-progress-label">
+                <span>Progress toward your target</span>
+                <strong>
+                  {currentGoalWeightKg === null
+                    ? "No check-in yet"
+                    : displayWeight(currentGoalWeightKg, goalWeightUnit)}
+                </strong>
+              </div>
+              <div className="goal-progress-track" aria-label={`${Math.round(goalProgress)}% complete`}>
+                <div className="goal-progress-fill" style={{ width: `${goalProgress}%` }} />
+              </div>
+              {currentGoal.plan_error && (
+                <p className="goal-warning" role="status">{currentGoal.plan_error}</p>
+              )}
+              {currentGoal.latest_plan && (
+                <div className="goal-plan">
+                  <div>
+                    <p className="eyebrow">
+                      {currentGoal.latest_plan.method === "calculated"
+                        ? "CALORIE ESTIMATE TO REVIEW"
+                        : "YOUR MANUAL CALORIE TARGET"}
+                    </p>
+                    {currentGoal.latest_plan.calorie_target_kcal !== null && (
+                      <strong className="goal-calorie-number">
+                        {metric(currentGoal.latest_plan.calorie_target_kcal)} kcal/day
+                      </strong>
+                    )}
+                    <p className="muted">
+                      Pace schedule ends around{" "}
+                      {new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
+                        new Date(`${currentGoal.latest_plan.estimated_end_date}T12:00:00`),
+                      )}
+                      . This is an estimate, not a promise.
+                    </p>
+                  </div>
+                  {currentGoal.latest_plan.calorie_target_kcal !== null &&
+                    currentGoal.latest_plan.calorie_target_kcal !== profile?.calorie_target && (
+                      <button
+                        type="button"
+                        className="secondary-button goal-apply-button"
+                        onClick={() => void applyGoalTarget()}
+                        disabled={goalBusy || !profile}
+                      >
+                        Review & apply
+                      </button>
+                    )}
+                  <p className="goal-model-note">
+                    {currentGoal.latest_plan.model_note}
+                    {currentGoal.latest_plan.source && (
+                      <>
+                        {" "}
+                        <a
+                          href="https://pubmed.ncbi.nlm.nih.gov/21872751/"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Research
+                        </a>
+                      </>
+                    )}
+                  </p>
+                </div>
+              )}
+              <form className="checkin-form" onSubmit={(event) => void saveWeightCheckIn(event)}>
+                <label>
+                  Weekly weight check-in
+                  <span className="checkin-input-row">
+                    <input
+                      type="number"
+                      min="1"
+                      max="1100"
+                      step="0.1"
+                      inputMode="decimal"
+                      value={checkInWeight}
+                      onChange={(event) => setCheckInWeight(event.target.value)}
+                      placeholder="Weight"
+                      required
+                    />
+                    <select
+                      value={goalWeightUnit}
+                      onChange={(event) => changeWeightUnit(event.target.value as WeightUnit)}
+                      aria-label="Weight unit"
+                    >
+                      <option value="lb">lb</option>
+                      <option value="kg">kg</option>
+                    </select>
+                    <button className="secondary-button" type="submit" disabled={goalBusy}>
+                      Save
+                    </button>
+                  </span>
+                </label>
+              </form>
+              {currentGoal.check_ins.length > 0 && (
+                <ul className="checkin-list" aria-label="Recent weight check-ins">
+                  {currentGoal.check_ins.slice(0, 4).map((checkIn) => (
+                    <li key={checkIn.id}>
+                      <span>
+                        {new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
+                          new Date(`${checkIn.measured_on}T12:00:00`),
+                        )}
+                      </span>
+                      <strong>{displayWeight(checkIn.weight_kg, goalWeightUnit)}</strong>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="eyebrow">YOUR GOALS</p>
+              <h2>One goal at a time</h2>
+              <p className="muted">Set a weight-loss goal and check in weekly to see your progress.</p>
+              <button
+                className="primary-button goal-start-button"
+                type="button"
+                onClick={() => {
+                  setGoalMethod("calculated");
+                  setGoalWeightUnit("lb");
+                  setGoalPreview(null);
+                  setGoalDraft(null);
+                  setGoalMessage("");
+                  setGoalOpen(true);
+                }}
+              >
+                Create a weight-loss goal
+              </button>
+            </>
+          )}
+          {goalMessage && <p className="goal-message" role="status">{goalMessage}</p>}
+        </section>
+      )}
 
       <section className="summary-card" aria-label="Daily nutrition summary">
         <div className="summary-heading">
@@ -657,6 +1070,191 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
             <div className="modal-actions">
               <button type="button" className="secondary-button" onClick={() => setTargetsOpen(false)}>Cancel</button>
               <button className="primary-button" type="submit">Save targets</button>
+            </div>
+          </form>
+        </div>
+      )}
+      {goalOpen && (
+              <div className="modal-backdrop" role="presentation">
+          <form
+            ref={goalFormRef}
+            className="modal-card goal-modal"
+            onSubmit={(event) => void previewGoal(event)}
+            onChange={() => {
+              setGoalPreview(null);
+              setGoalDraft(null);
+            }}
+            aria-labelledby="weight-goal-title"
+          >
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">ONE ACTIVE GOAL</p>
+                <h2 id="weight-goal-title">Create a weight-loss goal</h2>
+              </div>
+              <button
+                type="button"
+                className="close-button"
+                onClick={() => setGoalOpen(false)}
+                aria-label="Close goal setup"
+              >
+                ×
+              </button>
+            </div>
+            <label className="goal-unit-control">
+              Weight units
+              <select
+                value={goalWeightUnit}
+                onChange={(event) => changeWeightUnit(event.target.value as WeightUnit)}
+              >
+                <option value="lb">Pounds (lb)</option>
+                <option value="kg">Kilograms (kg)</option>
+              </select>
+            </label>
+            <div className="goal-form-grid">
+              <label>
+                Starting weight ({goalWeightUnit})
+                <input name="current_weight" type="number" min="1" max="1100" step="0.1" required />
+              </label>
+              <label>
+                Target weight ({goalWeightUnit})
+                <input name="target_weight" type="number" min="1" max="1100" step="0.1" required />
+              </label>
+              <label className="wide-field">
+                Desired loss pace ({goalWeightUnit}/week)
+                <input name="pace" type="number" min="0.1" max="11" step="0.1" defaultValue="1.0" required />
+              </label>
+            </div>
+            <label className="goal-method-field">
+              Calorie target
+              <select
+                value={goalMethod}
+                onChange={(event) => {
+                  setGoalMethod(event.target.value as GoalMethod);
+                  setGoalPreview(null);
+                  setGoalDraft(null);
+                }}
+              >
+                <option value="calculated">Calculate a suggested target</option>
+                <option value="manual">I’ll enter my own target</option>
+              </select>
+            </label>
+            {goalMethod === "calculated" ? (
+              <>
+                <p className="goal-science-note">
+                  This estimate uses the published dynamic body-weight model. Its equation
+                  requires age, height, activity level and a male/female parameter for the
+                  baseline estimate. If you don’t want to use that parameter, choose manual
+                  entry instead.
+                </p>
+                <div className="goal-form-grid">
+                  <label>
+                    Age
+                    <input name="age_years" type="number" min="18" max="120" step="1" required />
+                  </label>
+                  <label>
+                    Height (cm)
+                    <input name="height_cm" type="number" min="100" max="250" step="0.1" required />
+                  </label>
+                  <label>
+                    Sex parameter used by equation
+                    <select name="sex_parameter" defaultValue="male" required>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  </label>
+                  <label>
+                    Physical activity level
+                    <select name="activity_level" defaultValue="1.6" required>
+                      <option value="1.4">1.4 · mostly seated, little exercise</option>
+                      <option value="1.6">1.6 · light work, some weekly activity</option>
+                      <option value="1.8">1.8 · regular moderate activity</option>
+                      <option value="2.0">2.0 · active most days</option>
+                      <option value="2.2">2.2 · very active</option>
+                      <option value="2.5">2.5 · strenuous activity several times weekly</option>
+                    </select>
+                  </label>
+                </div>
+              </>
+            ) : (
+              <label className="goal-method-field">
+                Daily calorie target
+                <input
+                  name="manual_calories"
+                  type="number"
+                  min="1"
+                  max="10000"
+                  step="10"
+                  defaultValue={profile?.calorie_target ?? ""}
+                  required
+                />
+              </label>
+            )}
+            <label className="goal-consent">
+              <input name="adult_confirmed" type="checkbox" required />
+              <span>I’m 18 or older.</span>
+            </label>
+            <label className="goal-consent">
+              <input name="not_pregnant_or_breastfeeding" type="checkbox" required />
+              <span>I’m not currently pregnant or breastfeeding.</span>
+            </label>
+            <p className="goal-disclaimer">
+              Automated weight-loss estimates are not available for minors, pregnancy or
+              breastfeeding. Pregnancy and lactation goals are planned as separate goal types.
+              Estimates are not medical advice.
+            </p>
+            {goalMessage && <p className="goal-warning" role="status">{goalMessage}</p>}
+            {goalPreview && (
+              <div className="goal-preview" role="status">
+                <p className="eyebrow">
+                  {goalPreview.method === "calculated"
+                    ? "MODEL ESTIMATE — REVIEW BEFORE APPLYING"
+                    : "MANUAL TARGET — REVIEW BEFORE APPLYING"}
+                </p>
+                {goalPreview.calorie_target_kcal !== null && (
+                  <strong>{metric(goalPreview.calorie_target_kcal)} kcal/day</strong>
+                )}
+                <p>
+                  Target pace schedule: {Math.ceil(goalPreview.duration_days / 7)} weeks,
+                  ending around{" "}
+                  {new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
+                    new Date(`${goalPreview.estimated_end_date}T12:00:00`),
+                  )}.
+                </p>
+                <p className="goal-model-note">{goalPreview.model_note}</p>
+                {goalPreview.source && (
+                  <a
+                    href="https://pubmed.ncbi.nlm.nih.gov/21872751/"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Hall et al. (2011), research citation
+                  </a>
+                )}
+              </div>
+            )}
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setGoalOpen(false)}
+                disabled={goalBusy}
+              >
+                Cancel
+              </button>
+              {goalPreview ? (
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => void createGoal()}
+                  disabled={goalBusy}
+                >
+                  Start goal
+                </button>
+              ) : (
+                <button className="primary-button" type="submit" disabled={goalBusy}>
+                  {goalBusy ? "Calculating…" : "Preview plan"}
+                </button>
+              )}
             </div>
           </form>
         </div>

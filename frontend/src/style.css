@@ -72,10 +72,59 @@ p { margin-bottom: 0; }
 .progress-track { height: 7px; margin-top: 7px; overflow: hidden; border-radius: 99px; background: #d5e3d8; }
 .progress-fill { height: 100%; border-radius: inherit; background: #4e8c66; transition: width .2s ease; }
 
-.scan-card, .product-card, .catalog-card, .history-card {
+.scan-card, .product-card, .catalog-card, .history-card, .goal-card {
   margin-bottom: 14px; padding: 19px; border: 1px solid #e8eae4; border-radius: 20px;
   background: #fff; box-shadow: 0 5px 18px #26382d08;
 }
+.goal-card { border-color: #d8e5d8; background: #fbfdf9; }
+.goal-card h2 { margin-bottom: 5px; }
+.goal-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+.goal-start-button { width: 100%; margin-top: 16px; }
+.goal-progress-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; color: #52665a; font-size: .78rem; }
+.goal-progress-label strong { color: #274f37; white-space: nowrap; }
+.goal-progress-track { height: 8px; margin-top: 8px; overflow: hidden; border-radius: 99px; background: #dce8dc; }
+.goal-progress-fill { height: 100%; border-radius: inherit; background: #4e8c66; transition: width .25s ease; }
+.goal-plan { display: grid; gap: 12px; margin-top: 16px; padding: 14px; border: 1px solid #e2eae1; border-radius: 14px; background: #fff; }
+.goal-calorie-number { display: block; margin-bottom: 5px; color: #214d35; font-size: 1.35rem; letter-spacing: -.03em; }
+.goal-apply-button { min-height: 44px; }
+.goal-model-note, .goal-disclaimer { color: #718078; font-size: .72rem; line-height: 1.5; }
+.goal-model-note a, .goal-preview a { color: #35694a; font-weight: 700; }
+.goal-warning { margin-top: 12px; padding: 10px 12px; border: 1px solid #f0d6d1; border-radius: 11px; color: #8a3933; background: #fff5f3; font-size: .78rem; line-height: 1.45; }
+.goal-message { margin-top: 12px; padding: 10px 12px; border-radius: 10px; color: #435b4b; background: #f1f5ef; font-size: .78rem; line-height: 1.45; }
+.checkin-form { margin-top: 15px; padding-top: 14px; border-top: 1px solid #edf0ed; }
+.checkin-form > label, .goal-unit-control, .goal-method-field { display: grid; gap: 7px; color: #58675f; font-size: .78rem; font-weight: 700; }
+.checkin-input-row { display: flex; align-items: center; gap: 8px; }
+.checkin-input-row input, .checkin-input-row select, .goal-unit-control select, .goal-method-field select, .goal-method-field input {
+  min-width: 0; min-height: 44px; border: 1px solid #dfe5dd; border-radius: 11px; padding: 10px 11px;
+  color: #1c2a21; background: #fff; outline: none;
+}
+.checkin-input-row input { flex: 1; }
+.checkin-input-row select { width: 68px; }
+.checkin-input-row button { min-height: 44px; }
+.checkin-list { display: grid; gap: 7px; margin: 12px 0 0; padding: 0; list-style: none; }
+.checkin-list li { display: flex; justify-content: space-between; gap: 12px; color: #718078; font-size: .75rem; }
+.checkin-list strong { color: #405a49; }
+.goal-modal { display: grid; gap: 14px; }
+.goal-modal .section-heading { margin-bottom: 2px; }
+.goal-unit-control select, .goal-method-field select { width: 100%; }
+.goal-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+.goal-form-grid label { display: grid; min-width: 0; gap: 6px; color: #58675f; font-size: .76rem; font-weight: 650; }
+.goal-form-grid input, .goal-form-grid select {
+  width: 100%; min-width: 0; min-height: 44px; border: 1px solid #dfe5dd; border-radius: 11px;
+  padding: 10px; color: #1c2a21; background: #fff; outline: none;
+}
+.goal-form-grid input:focus, .goal-form-grid select:focus, .goal-unit-control select:focus, .goal-method-field select:focus, .goal-method-field input:focus {
+  border-color: #57906b; box-shadow: 0 0 0 3px #57906b1c;
+}
+.goal-method-field input { width: 100%; }
+.goal-science-note { padding: 11px 12px; border-radius: 11px; color: #53675a; background: #f1f5ef; font-size: .74rem; line-height: 1.5; }
+.goal-consent { display: flex; align-items: flex-start; gap: 9px; color: #52665a; font-size: .76rem; line-height: 1.4; }
+.goal-consent input { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; accent-color: #276144; }
+.goal-disclaimer { padding-top: 2px; }
+.goal-preview { display: grid; gap: 7px; padding: 14px; border: 1px solid #ccdfcf; border-radius: 14px; background: #f6faf4; }
+.goal-preview strong { color: #214d35; font-size: 1.35rem; }
+.goal-preview p { color: #53675a; font-size: .77rem; line-height: 1.45; }
+.goal-preview .eyebrow { color: #75847a; font-size: .65rem; }
 .scan-card h2 { margin-bottom: 5px; font-size: 1.25rem; }
 .scan-card > .muted { margin-bottom: 16px; }
 .primary-button, .secondary-button, .manual-upc button {
@@ -169,14 +218,15 @@ p { margin-bottom: 0; }
 
 @media (min-width: 600px) {
   .tracker { padding: 30px 28px 54px; }
-  .summary-card, .scan-card, .product-card, .catalog-card, .history-card { padding: 23px; }
+  .summary-card, .scan-card, .product-card, .catalog-card, .history-card, .goal-card { padding: 23px; }
   .macro-grid { gap: 12px; }
 }
 @media (max-width: 420px) {
   .tracker { padding-right: 14px; padding-left: 14px; }
   .topbar { margin-bottom: 21px; }
   .summary-card { padding: 18px; border-radius: 21px; }
-  .scan-card, .product-card, .catalog-card, .history-card { padding: 17px; border-radius: 18px; }
+  .scan-card, .product-card, .catalog-card, .history-card, .goal-card { padding: 17px; border-radius: 18px; }
+  .goal-form-grid { grid-template-columns: 1fr; }
   .macro-grid { gap: 6px; }
   .macro-grid .progress-block { padding: 10px 8px; }
   .macro-grid .progress-label { font-size: .64rem; }

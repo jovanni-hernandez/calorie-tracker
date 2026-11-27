@@ -1,9 +1,21 @@
 """Persistent domain models."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from calorie_tracker.database import Base
@@ -23,6 +35,42 @@ class Profile(Base):
     carbs_target_g: Mapped[float] = mapped_column(Float, default=250)
     fat_target_g: Mapped[float] = mapped_column(Float, default=70)
     meals: Mapped[list["Meal"]] = relationship(back_populates="profile")
+
+
+class Goal(Base):
+    """One active, extensible goal belonging to a Home Assistant profile."""
+
+    __tablename__ = "goals"
+    __table_args__ = (
+        Index(
+            "uq_goals_active_profile",
+            "profile_id",
+            unique=True,
+            sqlite_where=text("status = 'active'"),
+            postgresql_where=text("status = 'active'"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("profiles.id"), index=True)
+    goal_type: Mapped[str] = mapped_column(String(48))
+    status: Mapped[str] = mapped_column(String(16), default="active")
+    goal_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class WeightCheckIn(Base):
+    """A user's dated body-weight measurement, stored in canonical kilograms."""
+
+    __tablename__ = "weight_checkins"
+    __table_args__ = (
+        UniqueConstraint("profile_id", "measured_on", name="uq_weight_checkins_profile_date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("profiles.id"), index=True)
+    measured_on: Mapped[date] = mapped_column(Date)
+    weight_kg: Mapped[float] = mapped_column(Float)
 
 
 class Product(Base):

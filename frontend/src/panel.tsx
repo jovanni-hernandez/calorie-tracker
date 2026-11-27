@@ -2,7 +2,7 @@ import { createRoot, Root } from "react-dom/client";
 import { CalorieTrackerApp, HomeAssistant } from "./tracker";
 import "./style.css";
 
-const stylePath = "/calorie-tracker-assets/ha-calorie-tracker-frontend.css?v=0.1.4";
+const stylePath = "/calorie-tracker-assets/ha-calorie-tracker-frontend.css?v=0.2.0";
 
 class CalorieTrackerPanel extends HTMLElement {
   private root?: Root;

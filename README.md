@@ -37,3 +37,11 @@ npm run dev
 ```
 
 The backend tests run with `uv run pytest`; lint and strict Python typing use `uv run ruff check .` and `uv run mypy`. The frontend has `npm run typecheck` and `npm run build`.
+
+## Goal planning
+
+- Each Home Assistant profile can have only one active goal. Completed and cancelled goals remain in the database; dated weight check-ins are stored in kilograms.
+- The first goal type is adult weight loss. Users can choose a target weight and weekly pace, then either review an estimated calorie target or enter their own target. Estimates never update the profile's daily calorie setting until the user applies one.
+- The calculated estimate independently implements the published dynamic adult body-weight equations described by Hall et al. (2011), using fourth-order Runge–Kutta simulation and a numerical solve for the intake required to reach the goal on the selected schedule. It does not copy the NIDDK planner application.
+- Model reference: [Hall et al., *Lancet*, 2011](https://pubmed.ncbi.nlm.nih.gov/21872751/); [NIDDK research behind the Body Weight Planner](https://www.niddk.nih.gov/research-funding/at-niddk/labs-branches/laboratory-biological-modeling/integrative-physiology-section/research/body-weight-planner).
+- The automated weight-loss estimate is limited to adults who are not pregnant or breastfeeding, follows the reference planner's BMI 18.5 and 1,000 kcal/day limits, and is not medical advice. Manual calorie entry remains user-directed and is not a model recommendation. Pregnancy and lactation require distinct goal types and are not covered by this first version.

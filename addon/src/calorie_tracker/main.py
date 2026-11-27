@@ -2,19 +2,23 @@
 
 import secrets
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from datetime import date as LocalDate
+from math import ceil
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, status
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from calorie_tracker.config import get_settings
 from calorie_tracker.database import get_session
-from calorie_tracker.models import BarcodeCache, Meal, Product, Profile
+from calorie_tracker.models import BarcodeCache, Goal, Meal, Product, Profile, WeightCheckIn
 from calorie_tracker.schemas import (
+    CurrentGoalOut,
+    GoalOut,
     MealCreate,
     MealOut,
     MealUpdate,
@@ -25,6 +29,10 @@ from calorie_tracker.schemas import (
     ProfileOut,
     TargetUpdate,
     TotalsOut,
+    WeightCheckInCreate,
+    WeightCheckInOut,
+    WeightGoalPreviewOut,
+    WeightGoalRequest,
 )
 from calorie_tracker.service import (
     get_or_create_profile,
@@ -34,8 +42,15 @@ from calorie_tracker.service import (
     product_to_dict,
     update_meal_from_product,
 )
+from calorie_tracker.weight_model import (
+    MAXIMUM_PLAN_DAYS,
+    MODEL_REFERENCE,
+    WeightModelError,
+    WeightModelInputs,
+    calculate_weight_loss_plan,
+)
 
-app = FastAPI(title="HA Calorie Tracker API", version="0.1.0")
+app = FastAPI(title="HA Calorie Tracker API", version="0.2.0")
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
@@ -126,6 +141,234 @@ def update_targets(
     session.commit()
     session.refresh(profile)
     return profile
+
+
+def _weight_model_inputs(
+    data: dict[str, Any], current_weight_kg: float
+) -> WeightModelInputs:
+    """Build validated model inputs from a goal payload."""
+    return WeightModelInputs(
+        weight_kg=current_weight_kg,
+        height_cm=float(data["height_cm"]),
+        age_years=int(data["age_years"]),
+        sex_parameter=data["sex_parameter"],
+        activity_level=float(data["activity_level"]),
+    )
+
+
+def _weight_goal_preview(
+    data: dict[str, Any], current_weight_kg: float, timezone: str
+) -> WeightGoalPreviewOut:
+    """Preview a requested pace without changing the profile's daily targets."""
+    target_weight_kg = float(data["target_weight_kg"])
+    pace_kg_per_week = float(data["pace_kg_per_week"])
+    if current_weight_kg <= target_weight_kg or pace_kg_per_week <= 0:
+        raise WeightModelError(
+            "Current weight must be above target weight and pace must be positive."
+        )
+    duration_days = ceil((current_weight_kg - target_weight_kg) / pace_kg_per_week * 7.0)
+    if duration_days > MAXIMUM_PLAN_DAYS:
+        raise WeightModelError("Choose a more specific pace; the modeled plan exceeds 10 years.")
+    estimated_end_date = datetime.now(ZoneInfo(timezone)).date() + timedelta(days=duration_days)
+    method = data["method"]
+    if method == "manual":
+        calorie_target = int(round(float(data["manual_calorie_target_kcal"])))
+        return WeightGoalPreviewOut(
+            method="manual",
+            calorie_target_kcal=calorie_target,
+            duration_days=duration_days,
+            estimated_end_date=estimated_end_date,
+            projected_weight_kg=None,
+            model_note=(
+                "This is the calorie target you entered. The pace and date are your chosen "
+                "schedule, not a model prediction."
+            ),
+        )
+
+    model_inputs = _weight_model_inputs(data, current_weight_kg)
+    plan = calculate_weight_loss_plan(
+        model_inputs,
+        target_weight_kg=target_weight_kg,
+        pace_kg_per_week=pace_kg_per_week,
+    )
+    return WeightGoalPreviewOut(
+        method="calculated",
+        calorie_target_kcal=plan.calorie_target_kcal,
+        duration_days=plan.duration_days,
+        estimated_end_date=estimated_end_date,
+        projected_weight_kg=plan.projected_weight_kg,
+        model_note=(
+            "Estimated with the published dynamic adult body-weight model. Individual results "
+            "vary; this is not medical advice."
+        ),
+        source=MODEL_REFERENCE,
+    )
+
+
+@app.get("/api/v1/goals/current", response_model=CurrentGoalOut)
+def current_goal(
+    user: Annotated[AuthenticatedUser, Depends(authenticated_user)], session: SessionDep
+) -> dict[str, Any]:
+    """Return the signed-in user's active goal and recent weight check-ins."""
+    profile = get_profile(session, user.user_id, user.display_name, user.timezone)
+    goal = session.scalar(
+        select(Goal).where(Goal.profile_id == profile.id, Goal.status == "active")
+    )
+    if goal is None:
+        return {"goal": None, "check_ins": [], "latest_plan": None, "plan_error": None}
+
+    check_ins = list(
+        session.scalars(
+            select(WeightCheckIn)
+            .where(
+                WeightCheckIn.profile_id == profile.id,
+                WeightCheckIn.measured_on >= goal.created_at.date(),
+            )
+            .order_by(WeightCheckIn.measured_on.desc())
+            .limit(12)
+        )
+    )
+    data = goal.goal_data
+    current_weight_kg = (
+        check_ins[0].weight_kg if check_ins else float(data["current_weight_kg"])
+    )
+    try:
+        latest_plan = _weight_goal_preview(data, current_weight_kg, user.timezone)
+        plan_error = None
+    except (KeyError, TypeError, ValueError) as err:
+        latest_plan = None
+        plan_error = str(err)
+    return {
+        "goal": goal,
+        "check_ins": check_ins,
+        "latest_plan": latest_plan,
+        "plan_error": plan_error,
+    }
+
+
+@app.post("/api/v1/goals/preview", response_model=WeightGoalPreviewOut)
+def preview_weight_goal(
+    payload: WeightGoalRequest,
+    user: Annotated[AuthenticatedUser, Depends(authenticated_user)],
+) -> WeightGoalPreviewOut:
+    """Calculate a plan preview without saving a goal or changing daily targets."""
+    try:
+        return _weight_goal_preview(payload.model_dump(), payload.current_weight_kg, user.timezone)
+    except WeightModelError as err:
+        raise HTTPException(status_code=422, detail=str(err)) from err
+
+
+@app.post("/api/v1/goals", response_model=GoalOut, status_code=status.HTTP_201_CREATED)
+def create_weight_goal(
+    payload: WeightGoalRequest,
+    user: Annotated[AuthenticatedUser, Depends(authenticated_user)],
+    session: SessionDep,
+) -> Goal:
+    """Create one active weight-loss goal for the signed-in profile."""
+    profile = get_profile(session, user.user_id, user.display_name, user.timezone)
+    active_goal = session.scalar(
+        select(Goal).where(Goal.profile_id == profile.id, Goal.status == "active")
+    )
+    if active_goal is not None:
+        raise HTTPException(status_code=409, detail="Complete or cancel the active goal first.")
+    goal_data = payload.model_dump(
+        exclude={"adult_confirmed", "not_pregnant_or_breastfeeding"}
+    )
+    try:
+        _weight_goal_preview(goal_data, payload.current_weight_kg, user.timezone)
+    except WeightModelError as err:
+        raise HTTPException(status_code=422, detail=str(err)) from err
+    goal = Goal(
+        profile_id=profile.id,
+        goal_type="weight_loss",
+        status="active",
+        goal_data=goal_data,
+        created_at=datetime.now(UTC),
+    )
+    session.add(goal)
+    try:
+        session.commit()
+    except IntegrityError as err:
+        session.rollback()
+        raise HTTPException(
+            status_code=409, detail="Complete or cancel the active goal first."
+        ) from err
+    session.refresh(goal)
+    return goal
+
+
+@app.delete("/api/v1/goals/current", response_model=GoalOut)
+def cancel_current_goal(
+    user: Annotated[AuthenticatedUser, Depends(authenticated_user)], session: SessionDep
+) -> Goal:
+    """Cancel the active goal while preserving its history."""
+    profile = get_profile(session, user.user_id, user.display_name, user.timezone)
+    goal = session.scalar(
+        select(Goal).where(Goal.profile_id == profile.id, Goal.status == "active")
+    )
+    if goal is None:
+        raise HTTPException(status_code=404, detail="There is no active goal.")
+    goal.status = "cancelled"
+    session.commit()
+    session.refresh(goal)
+    return goal
+
+
+@app.post("/api/v1/goals/current/complete", response_model=GoalOut)
+def complete_current_goal(
+    user: Annotated[AuthenticatedUser, Depends(authenticated_user)], session: SessionDep
+) -> Goal:
+    """Complete the active goal while preserving its history."""
+    profile = get_profile(session, user.user_id, user.display_name, user.timezone)
+    goal = session.scalar(
+        select(Goal).where(Goal.profile_id == profile.id, Goal.status == "active")
+    )
+    if goal is None:
+        raise HTTPException(status_code=404, detail="There is no active goal.")
+    goal.status = "completed"
+    session.commit()
+    session.refresh(goal)
+    return goal
+
+
+@app.put("/api/v1/goals/current/check-ins", response_model=WeightCheckInOut)
+def save_weight_checkin(
+    payload: WeightCheckInCreate,
+    user: Annotated[AuthenticatedUser, Depends(authenticated_user)],
+    session: SessionDep,
+) -> WeightCheckIn:
+    """Save or correct one dated check-in for the active weight-loss goal."""
+    profile = get_profile(session, user.user_id, user.display_name, user.timezone)
+    goal = session.scalar(
+        select(Goal).where(Goal.profile_id == profile.id, Goal.status == "active")
+    )
+    if goal is None or goal.goal_type != "weight_loss":
+        raise HTTPException(status_code=404, detail="There is no active weight-loss goal.")
+    if payload.measured_on < goal.created_at.date():
+        raise HTTPException(
+            status_code=422,
+            detail="A check-in date cannot be earlier than the active goal.",
+        )
+    if payload.measured_on > datetime.now(ZoneInfo(user.timezone)).date():
+        raise HTTPException(status_code=422, detail="A check-in date cannot be in the future.")
+    check_in = session.scalar(
+        select(WeightCheckIn).where(
+            WeightCheckIn.profile_id == profile.id,
+            WeightCheckIn.measured_on == payload.measured_on,
+        )
+    )
+    if check_in is None:
+        check_in = WeightCheckIn(
+            profile_id=profile.id,
+            measured_on=payload.measured_on,
+            weight_kg=payload.weight_kg,
+        )
+        session.add(check_in)
+    else:
+        check_in.weight_kg = payload.weight_kg
+    session.commit()
+    session.refresh(check_in)
+    return check_in
 
 
 @app.get("/api/v1/products/lookup", response_model=ProductOut | None)

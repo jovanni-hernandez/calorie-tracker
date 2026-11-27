@@ -1,9 +1,9 @@
 """Typed API request and response schemas."""
 
-from datetime import datetime
-from typing import Literal
+from datetime import date, datetime
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ProductOut(BaseModel):
@@ -116,6 +116,97 @@ class TargetUpdate(BaseModel):
     protein_target_g: float = Field(gt=0)
     carbs_target_g: float = Field(gt=0)
     fat_target_g: float = Field(gt=0)
+
+
+class WeightGoalRequest(BaseModel):
+    """Create or preview a weight-loss goal and its optional calorie estimate."""
+
+    current_weight_kg: float = Field(gt=0, le=500)
+    target_weight_kg: float = Field(gt=0, le=500)
+    pace_kg_per_week: float = Field(gt=0, le=5)
+    method: Literal["calculated", "manual"]
+    manual_calorie_target_kcal: float | None = Field(default=None, gt=0, le=10000)
+    age_years: int | None = Field(default=None, ge=18, le=120)
+    height_cm: float | None = Field(default=None, ge=100, le=250)
+    sex_parameter: Literal["male", "female"] | None = None
+    activity_level: float | None = Field(default=None, ge=1.0, le=2.5)
+    adult_confirmed: bool
+    not_pregnant_or_breastfeeding: bool
+
+    @model_validator(mode="after")
+    def validate_goal_inputs(self) -> "WeightGoalRequest":
+        """Require an adult, eligible weight-loss goal and complete method inputs."""
+        if self.target_weight_kg >= self.current_weight_kg:
+            raise ValueError("Target weight must be below current weight.")
+        if not self.adult_confirmed:
+            raise ValueError("The weight-loss goal is only available to adults.")
+        if not self.not_pregnant_or_breastfeeding:
+            raise ValueError(
+                "The weight-loss goal is not available during pregnancy or breastfeeding."
+            )
+        if self.method == "manual" and self.manual_calorie_target_kcal is None:
+            raise ValueError("Enter a manual daily calorie target.")
+        if self.method == "calculated" and any(
+            value is None
+            for value in (
+                self.age_years,
+                self.height_cm,
+                self.sex_parameter,
+                self.activity_level,
+            )
+        ):
+            raise ValueError("Complete the model inputs or choose manual calorie entry.")
+        return self
+
+
+class WeightGoalPreviewOut(BaseModel):
+    """An estimated calorie target and the requested pace schedule."""
+
+    method: Literal["calculated", "manual"]
+    calorie_target_kcal: int | None
+    duration_days: int
+    estimated_end_date: date
+    projected_weight_kg: float | None
+    model_note: str
+    source: str | None = None
+
+
+class GoalOut(BaseModel):
+    """A profile-owned active or historical goal."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    goal_type: str
+    status: str
+    goal_data: dict[str, Any]
+    created_at: datetime
+
+
+class WeightCheckInCreate(BaseModel):
+    """A dated weight measurement, accepted in canonical kilograms."""
+
+    measured_on: date
+    weight_kg: float = Field(gt=0, le=500)
+
+
+class WeightCheckInOut(BaseModel):
+    """A saved weight check-in."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    measured_on: date
+    weight_kg: float
+
+
+class CurrentGoalOut(BaseModel):
+    """The active goal, recent check-ins, and current plan proposal."""
+
+    goal: GoalOut | None
+    check_ins: list[WeightCheckInOut]
+    latest_plan: WeightGoalPreviewOut | None
+    plan_error: str | None = None
 
 
 class ProfileOut(BaseModel):
