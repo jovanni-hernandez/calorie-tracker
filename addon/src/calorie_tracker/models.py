@@ -78,3 +78,4 @@ class BarcodeCache(Base):
     product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), nullable=True)
     checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     refresh_requested: Mapped[bool] = mapped_column(Boolean, default=False)
+    provider_statuses: Mapped[dict[str, str] | None] = mapped_column(JSON, nullable=True)

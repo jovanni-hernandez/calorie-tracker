@@ -101,6 +101,9 @@ p { margin-bottom: 0; }
 .text-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 0; color: #35694a; background: none; font-size: .82rem; font-weight: 700; }
 .label-scan-button { width: 100%; margin-top: 13px; padding: 7px; }
 .status-message { margin-top: 12px; padding: 10px 12px; border-radius: 10px; color: #435b4b; background: #f1f5ef; font-size: .8rem; line-height: 1.45; }
+.provider-results { display: grid; gap: 7px; margin-top: 10px; padding: 10px 12px; border: 1px solid #e4ebe3; border-radius: 11px; color: #52665a; background: #fbfcf9; font-size: .76rem; }
+.provider-results > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.provider-results strong { color: #385c45; font-size: .73rem; text-align: right; }
 
 .section-heading { align-items: flex-start; }
 .catalog-card .section-heading, .history-card .log-heading { margin-bottom: 7px; }
@@ -155,6 +158,11 @@ p { margin-bottom: 0; }
 .full-button { width: 100%; margin-top: 12px; }
 .error-message { margin-top: 12px; padding: 12px; border: 1px solid #f0d6d1; border-radius: 12px; color: #8a3933; background: #fff5f3; font-size: .8rem; line-height: 1.5; }
 .captured-image { display: block; width: 100%; max-height: 25dvh; object-fit: contain; border-radius: 12px; background: #f0f2f0; }
+.scan-success-overlay { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; background: #f4f5f0f2; animation: scan-success-fade 900ms ease forwards; pointer-events: none; }
+.scan-success-mark { display: grid; justify-items: center; gap: 10px; color: #256a43; font-size: 1rem; font-weight: 750; animation: scan-success-pop 900ms ease both; }
+.scan-success-mark svg { width: 76px; height: 76px; padding: 17px; border: 3px solid #49a96b; border-radius: 50%; fill: none; stroke: #278b4d; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3.5; background: #e7f5e9; }
+@keyframes scan-success-fade { 0%, 55% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes scan-success-pop { 0% { opacity: 0; transform: scale(.8); } 18%, 65% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(.97); } }
 .ocr-text-label { margin-top: 14px; }
 .ocr-text-label textarea { resize: vertical; font-weight: 400; }
 .hidden-canvas, .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }

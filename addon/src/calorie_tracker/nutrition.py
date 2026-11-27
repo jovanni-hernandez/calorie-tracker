@@ -1,14 +1,27 @@
 """External nutrition database clients."""
 
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Literal
 
 import httpx
 
 from calorie_tracker.config import get_settings
 
+ProviderStatus = Literal[
+    "found",
+    "not_found",
+    "unavailable",
+    "not_configured",
+    "not_checked",
+]
 
-class NutritionLookupError(Exception):
-    """Raised when a nutrition provider is temporarily unavailable."""
+
+@dataclass(frozen=True)
+class BarcodeLookupResult:
+    """Nutrition facts and the outcome from each provider."""
+
+    facts: dict[str, Any] | None
+    providers: dict[str, ProviderStatus]
 
 
 def _number(value: object) -> float | None:
@@ -29,6 +42,13 @@ def _nutrient_value(nutrients: list[dict[str, Any]], *names: str) -> float | Non
             if value is not None:
                 return value
     return None
+
+
+def _has_complete_nutrition(facts: dict[str, Any]) -> bool:
+    """Return whether a provider supplied all macros needed for meal logging."""
+    return all(
+        facts.get(key) is not None for key in ("calories", "protein_g", "carbs_g", "fat_g")
+    )
 
 
 def _from_usda(barcode: str) -> dict[str, Any] | None:
@@ -72,8 +92,10 @@ def _from_open_food_facts(barcode: str) -> dict[str, Any] | None:
     )
     response.raise_for_status()
     payload = response.json()
-    if payload.get("status") != 1:
-        return None
+    if payload.get("status") not in (1, "success", "success_with_warnings"):
+        if payload.get("status") in (0, "failure"):
+            return None
+        raise ValueError("Open Food Facts returned an unrecognized status")
     product = payload.get("product", {})
     if str(product.get("code", "")).lstrip("0") != barcode.lstrip("0"):
         return None
@@ -92,29 +114,52 @@ def _from_open_food_facts(barcode: str) -> dict[str, Any] | None:
     }
 
 
-def lookup_barcode(barcode: str) -> dict[str, Any] | None:
-    """Try USDA first and Open Food Facts second, verifying exact UPCs."""
-    errors = 0
+def lookup_barcode(barcode: str) -> BarcodeLookupResult:
+    """Try USDA, then Open Food Facts, and retain each provider's outcome."""
+    settings = get_settings()
+    has_usda_key = bool(settings.usda_api_key.get_secret_value())
+    providers: dict[str, ProviderStatus] = {
+        "usda": "not_checked" if has_usda_key else "not_configured",
+        "open_food_facts": "not_checked",
+    }
     candidates: list[dict[str, Any]] = []
-    for provider in (_from_usda, _from_open_food_facts):
+
+    if has_usda_key:
         try:
-            result = provider(barcode)
-        except httpx.HTTPError:
-            errors += 1
-            continue
+            result = _from_usda(barcode)
+        except (httpx.HTTPError, ValueError):
+            providers["usda"] = "unavailable"
+        else:
+            providers["usda"] = "found" if result else "not_found"
+            if result:
+                candidates.append(result)
+                if _has_complete_nutrition(result):
+                    return BarcodeLookupResult(facts=result, providers=providers)
+
+    try:
+        result = _from_open_food_facts(barcode)
+    except httpx.HTTPStatusError as error:
+        providers["open_food_facts"] = (
+            "not_found" if error.response.status_code == 404 else "unavailable"
+        )
+    except (httpx.HTTPError, ValueError):
+        providers["open_food_facts"] = "unavailable"
+    else:
+        providers["open_food_facts"] = "found" if result else "not_found"
         if result:
             candidates.append(result)
-            if all(
-                result.get(key) is not None for key in ("calories", "protein_g", "carbs_g", "fat_g")
-            ):
-                return result
-    if candidates:
-        return max(
+            if _has_complete_nutrition(result):
+                return BarcodeLookupResult(facts=result, providers=providers)
+
+    if not candidates:
+        return BarcodeLookupResult(facts=None, providers=providers)
+    return BarcodeLookupResult(
+        facts=max(
             candidates,
             key=lambda item: sum(
-                item.get(key) is not None for key in ("calories", "protein_g", "carbs_g", "fat_g")
+                item.get(key) is not None
+                for key in ("calories", "protein_g", "carbs_g", "fat_g")
             ),
-        )
-    if errors:
-        raise NutritionLookupError("Nutrition providers are temporarily unavailable")
-    return None
+        ),
+        providers=providers,
+    )

@@ -25,6 +25,29 @@ class ProductOut(BaseModel):
     fat_g: float | None
 
 
+ProviderStatus = Literal[
+    "found",
+    "not_found",
+    "unavailable",
+    "not_configured",
+    "not_checked",
+]
+
+
+class ProductLookupProviders(BaseModel):
+    """Per-provider result for a barcode lookup."""
+
+    usda: ProviderStatus
+    open_food_facts: ProviderStatus
+
+
+class ProductLookupOut(BaseModel):
+    """Product match and provider diagnostics for a barcode lookup."""
+
+    product: ProductOut | None
+    providers: ProductLookupProviders | None
+
+
 class ProductCreate(BaseModel):
     """Create a local product, for example from confirmed OCR."""
 

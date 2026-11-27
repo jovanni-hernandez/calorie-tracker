@@ -21,6 +21,21 @@ interface Product {
   fat_g: number | null;
 }
 
+type ProviderStatus =
+  | "found"
+  | "not_found"
+  | "unavailable"
+  | "not_configured"
+  | "not_checked";
+
+interface ProductLookupResult {
+  product: Product | null;
+  providers: {
+    usda: ProviderStatus;
+    open_food_facts: ProviderStatus;
+  } | null;
+}
+
 interface Profile {
   id: number;
   display_name: string;
@@ -122,6 +137,14 @@ const api = <T,>(
 
 const metric = (value: number): string => Math.round(value).toLocaleString();
 
+const providerStatusLabel: Record<ProviderStatus, string> = {
+  found: "Match found",
+  not_found: "Not found",
+  unavailable: "Unavailable",
+  not_configured: "Key not configured",
+  not_checked: "Not checked",
+};
+
 function NutritionLine({ product }: { product: Product }): React.ReactElement {
   const value = (fact: number | null): string => (fact === null ? "—" : metric(fact));
   return (
@@ -149,6 +172,8 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
   const [upc, setUpc] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [lookupProviders, setLookupProviders] = useState<ProductLookupResult["providers"]>(null);
+  const [scanSuccess, setScanSuccess] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [labelOpen, setLabelOpen] = useState(false);
   const [targetsOpen, setTargetsOpen] = useState(false);
@@ -175,27 +200,52 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
   }, [reload]);
 
   const lookup = useCallback(
-    async (barcode: string, refresh = false) => {
+    async (barcode: string, refresh = false, cameraScan = false) => {
       setBusy(true);
       setMessage("Looking up product…");
+      setLookupProviders(null);
+      setScanSuccess(false);
       try {
-        const result = await api<Product | null>(
-          hass,
-          "GET",
-          `products/lookup?upc=${encodeURIComponent(barcode)}${refresh ? "&refresh=true" : ""}`,
-        );
-        if (!result) {
+        const lookupPath =
+          `products/lookup?upc=${encodeURIComponent(barcode)}${refresh ? "&refresh=true" : ""}`;
+        let result: ProductLookupResult;
+        try {
+          result = await api<ProductLookupResult>(
+            hass,
+            "GET",
+            `products/lookup/details?upc=${encodeURIComponent(barcode)}${refresh ? "&refresh=true" : ""}`,
+          );
+        } catch {
+          // Keep this frontend usable with an older add-on during staged updates.
+          const legacyProduct = await api<Product | null>(hass, "GET", lookupPath);
+          result = { product: legacyProduct, providers: null };
+        }
+        if (!result.product) {
           setSelected(null);
           setEditingProduct(false);
           setUpc(barcode);
-          setMessage("No nutrition match. Scan the nutrition label to add this product.");
+          setLookupProviders(result.providers);
+          setMessage(
+            result.providers
+              ? "No product result. Check each source below, then retry or scan the nutrition label."
+              : "This cached miss has no source details. Retry the lookup to check both providers.",
+          );
         } else {
-          setSelected(result);
+          setSelected(result.product);
           setEditingProduct(false);
           setUpc(barcode);
           setAmount("1");
           setAmountMode("servings");
-          setMessage(`Found via ${result.source.replaceAll("_", " ")}. Review before logging.`);
+          setLookupProviders(null);
+          setMessage(`Found via ${result.product.source.replaceAll("_", " ")}. Review before logging.`);
+          if (cameraScan) {
+            try {
+              if (typeof navigator.vibrate === "function") navigator.vibrate(70);
+            } catch {
+              // Haptics may be unavailable or blocked in an embedded browser.
+            }
+            setScanSuccess(true);
+          }
         }
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Product lookup failed.");
@@ -207,6 +257,12 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
     [hass],
   );
 
+  useEffect(() => {
+    if (!scanSuccess) return;
+    const timeout = window.setTimeout(() => setScanSuccess(false), 900);
+    return () => window.clearTimeout(timeout);
+  }, [scanSuccess]);
+
   const submitUpc = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     if (/^\d{8,14}$/.test(upc.trim())) void lookup(upc.trim());
@@ -215,7 +271,7 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
 
   const onBarcodeScan = useCallback(
     (code: string) => {
-      void lookup(code);
+      void lookup(code, false, true);
     },
     [lookup],
   );
@@ -443,6 +499,12 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
           </button>
         )}
         {message && <p className="status-message" role="status">{message}</p>}
+        {!selected && lookupProviders && (
+          <div className="provider-results" aria-label="Barcode lookup results">
+            <div><span>USDA</span><strong>{providerStatusLabel[lookupProviders.usda]}</strong></div>
+            <div><span>Open Food Facts</span><strong>{providerStatusLabel[lookupProviders.open_food_facts]}</strong></div>
+          </div>
+        )}
       </section>
 
       {selected && (
@@ -597,6 +659,16 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
               <button className="primary-button" type="submit">Save targets</button>
             </div>
           </form>
+        </div>
+      )}
+      {scanSuccess && (
+        <div className="scan-success-overlay" role="status" aria-label="Product found">
+          <div className="scan-success-mark">
+            <svg viewBox="0 0 48 48" aria-hidden="true">
+              <path d="m12 25 8 8 17-18" />
+            </svg>
+            <span>Product found</span>
+          </div>
         </div>
       )}
     </main>

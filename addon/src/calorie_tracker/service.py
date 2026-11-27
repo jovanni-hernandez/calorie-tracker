@@ -1,7 +1,8 @@
 """Domain operations for product lookup and meal calculations."""
 
+from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -11,6 +12,14 @@ from sqlalchemy.orm import Session, joinedload
 from calorie_tracker.config import get_settings
 from calorie_tracker.models import BarcodeCache, Meal, Product, Profile
 from calorie_tracker.nutrition import lookup_barcode
+
+
+@dataclass(frozen=True)
+class ProductLookupOutcome:
+    """Product match, if any, with cached provider diagnostics."""
+
+    product: Product | None
+    providers: dict[str, str] | None
 
 
 def get_or_create_profile(
@@ -65,17 +74,24 @@ def product_to_dict(product: Product) -> dict[str, Any]:
     }
 
 
-def lookup_or_cache(session: Session, barcode: str, *, refresh: bool = False) -> Product | None:
+def lookup_or_cache(
+    session: Session, barcode: str, *, refresh: bool = False
+) -> ProductLookupOutcome:
     """Return a cached product or make one ordered lookup for an unseen UPC."""
     normalized = barcode.strip()
     cached = session.scalar(select(BarcodeCache).where(BarcodeCache.upc == normalized))
     if cached and not refresh:
-        return session.get(Product, cached.product_id) if cached.product_id else None
+        return ProductLookupOutcome(
+            product=session.get(Product, cached.product_id) if cached.product_id else None,
+            providers=cached.provider_statuses,
+        )
     existing_product = session.scalar(select(Product).where(Product.upc == normalized))
     if cached:
         session.delete(cached)
         session.flush()
-    facts = lookup_barcode(normalized)
+    lookup = lookup_barcode(normalized)
+    provider_statuses = cast(dict[str, str], lookup.providers)
+    facts = lookup.facts
     now = datetime.now(UTC)
     if facts is None:
         if existing_product:
@@ -85,13 +101,27 @@ def lookup_or_cache(session: Session, barcode: str, *, refresh: bool = False) ->
                     status="found",
                     product_id=existing_product.id,
                     checked_at=now,
+                    provider_statuses=provider_statuses,
                 )
             )
             session.commit()
-            return existing_product
-        session.add(BarcodeCache(upc=normalized, status="not_found", checked_at=now))
+            return ProductLookupOutcome(
+                product=existing_product,
+                providers=provider_statuses,
+            )
+        session.add(
+            BarcodeCache(
+                upc=normalized,
+                status="not_found",
+                checked_at=now,
+                provider_statuses=provider_statuses,
+            )
+        )
         session.commit()
-        return None
+        return ProductLookupOutcome(
+            product=None,
+            providers=provider_statuses,
+        )
     if existing_product:
         product = existing_product
         updatable_fields = {
@@ -127,10 +157,21 @@ def lookup_or_cache(session: Session, barcode: str, *, refresh: bool = False) ->
         )
     session.add(product)
     session.flush()
-    session.add(BarcodeCache(upc=normalized, status="found", product_id=product.id, checked_at=now))
+    session.add(
+        BarcodeCache(
+            upc=normalized,
+            status="found",
+            product_id=product.id,
+            checked_at=now,
+            provider_statuses=provider_statuses,
+        )
+    )
     session.commit()
     session.refresh(product)
-    return product
+    return ProductLookupOutcome(
+        product=product,
+        providers=provider_statuses,
+    )
 
 
 def nutrition_for_amount(product: Product, mode: str, amount: float) -> dict[str, float]:

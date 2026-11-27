@@ -2,7 +2,6 @@
 
 from collections.abc import Generator
 from datetime import UTC, datetime
-from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 from calorie_tracker.database import Base, get_session
 from calorie_tracker.main import app
 from calorie_tracker.models import BarcodeCache
+from calorie_tracker.nutrition import BarcodeLookupResult
 from calorie_tracker.service import lookup_or_cache
 
 TEST_ENGINE = create_engine(
@@ -127,27 +127,31 @@ def test_barcode_cache_avoids_repeated_provider_calls(
 
     calls = 0
 
-    def fake_lookup(barcode: str) -> dict[str, Any]:
+    def fake_lookup(barcode: str) -> BarcodeLookupResult:
         nonlocal calls
         calls += 1
-        return {
-            "name": "Cached snack",
-            "brand": "Example",
-            "source": "usda",
-            "serving_size": "1 pack",
-            "serving_weight_g": 30,
-            "calories": 120,
-            "protein_g": 3,
-            "carbs_g": 20,
-            "fat_g": 4,
-        }
+        return BarcodeLookupResult(
+            facts={
+                "name": "Cached snack",
+                "brand": "Example",
+                "source": "usda",
+                "serving_size": "1 pack",
+                "serving_weight_g": 30,
+                "calories": 120,
+                "protein_g": 3,
+                "carbs_g": 20,
+                "fat_g": 4,
+            },
+            providers={"usda": "found", "open_food_facts": "not_checked"},
+        )
 
     monkeypatch.setattr(service, "lookup_barcode", fake_lookup)
     with TestSession() as session:
         first = lookup_or_cache(session, "012345678905")
         second = lookup_or_cache(session, "012345678905")
-        assert first is not None and second is not None
-        assert first.id == second.id
+        assert first.product is not None and second.product is not None
+        assert first.product.id == second.product.id
+        assert second.providers == {"usda": "found", "open_food_facts": "not_checked"}
         assert calls == 1
 
 
@@ -157,14 +161,66 @@ def test_not_found_barcode_is_cached(monkeypatch: pytest.MonkeyPatch) -> None:
 
     calls = 0
 
-    def fake_lookup(_barcode: str) -> None:
+    def fake_lookup(_barcode: str) -> BarcodeLookupResult:
         nonlocal calls
         calls += 1
-        return None
+        return BarcodeLookupResult(
+            facts=None,
+            providers={"usda": "not_configured", "open_food_facts": "not_found"},
+        )
 
     monkeypatch.setattr(service, "lookup_barcode", fake_lookup)
     with TestSession() as session:
-        assert lookup_or_cache(session, "000000000000") is None
-        assert lookup_or_cache(session, "000000000000") is None
+        first = lookup_or_cache(session, "000000000000")
+        second = lookup_or_cache(session, "000000000000")
+        assert first.product is None and second.product is None
+        assert second.providers == {"usda": "not_configured", "open_food_facts": "not_found"}
         assert calls == 1
         assert session.query(BarcodeCache).count() == 1
+
+
+def test_lookup_api_returns_provider_diagnostics(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The frontend can explain which nutrition providers did not find a UPC."""
+    from calorie_tracker import service
+
+    monkeypatch.setattr(
+        service,
+        "lookup_barcode",
+        lambda _barcode: BarcodeLookupResult(
+            facts=None,
+            providers={"usda": "not_configured", "open_food_facts": "not_found"},
+        ),
+    )
+    response = client.get(
+        "/api/v1/products/lookup/details?upc=051000281081",
+        headers=auth(),
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "product": None,
+        "providers": {"usda": "not_configured", "open_food_facts": "not_found"},
+    }
+
+
+def test_legacy_lookup_response_remains_compatible(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Existing frontends can continue consuming the original product-or-null shape."""
+    from calorie_tracker import service
+
+    monkeypatch.setattr(
+        service,
+        "lookup_barcode",
+        lambda _barcode: BarcodeLookupResult(
+            facts=None,
+            providers={"usda": "not_configured", "open_food_facts": "not_found"},
+        ),
+    )
+    response = client.get(
+        "/api/v1/products/lookup?upc=051000281081",
+        headers=auth(),
+    )
+    assert response.status_code == 200
+    assert response.json() is None

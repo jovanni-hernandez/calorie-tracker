@@ -14,12 +14,12 @@ from sqlalchemy.orm import Session, joinedload
 from calorie_tracker.config import get_settings
 from calorie_tracker.database import get_session
 from calorie_tracker.models import BarcodeCache, Meal, Product, Profile
-from calorie_tracker.nutrition import NutritionLookupError
 from calorie_tracker.schemas import (
     MealCreate,
     MealOut,
     MealUpdate,
     ProductCreate,
+    ProductLookupOut,
     ProductOut,
     ProductUpdate,
     ProfileOut,
@@ -137,10 +137,22 @@ def product_lookup(
 ) -> Product | None:
     """Resolve a barcode from the local cache, then USDA and Open Food Facts."""
     del user
-    try:
-        return lookup_or_cache(session, upc, refresh=refresh)
-    except NutritionLookupError as err:
-        raise HTTPException(status_code=503, detail=str(err)) from err
+    return lookup_or_cache(session, upc, refresh=refresh).product
+
+
+@app.get("/api/v1/products/lookup/details", response_model=ProductLookupOut)
+def product_lookup_details(
+    user: Annotated[AuthenticatedUser, Depends(authenticated_user)],
+    session: SessionDep,
+    upc: str = Query(min_length=8, max_length=14, pattern=r"^[0-9]+$"),
+    refresh: bool = False,
+) -> ProductLookupOut:
+    """Return a barcode match and diagnostics for each lookup provider."""
+    del user
+    outcome = lookup_or_cache(session, upc, refresh=refresh)
+    return ProductLookupOut.model_validate(
+        {"product": outcome.product, "providers": outcome.providers}
+    )
 
 
 @app.get("/api/v1/products")
