@@ -343,6 +343,10 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
       (totals.fat_g / profile.fat_target_g) * 100,
     ].map((value) => Math.min(100, Math.max(0, value)));
   }, [profile, totals]);
+  const caloriesRemaining = Math.max(
+    0,
+    (profile?.calorie_target ?? 0) - (totals?.calories ?? 0),
+  );
   const nutritionComplete =
     selected !== null &&
     selected.calories !== null &&
@@ -353,24 +357,37 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
   return (
     <main className="tracker">
       <header className="topbar">
-        <div>
-          <p className="eyebrow">HOME ASSISTANT · NUTRITION</p>
-          <h1>Calorie Tracker</h1>
-          <p className="muted">{profile?.display_name ?? "Your profile"}</p>
+        <div className="brand-lockup">
+          <span className="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M19.8 4.2C12.9 4.4 7.4 5.8 5 9.7c-1.5 2.5-.6 5.7 1.8 6.7 2.3 1 4.8-.4 5.8-2.6.9-1.9 2.5-4.7 7.2-8.4ZM5.2 20c2.4-4.8 5.7-8.2 10.1-10.6" /></svg>
+          </span>
+          <span className="brand-name">NOURISH</span>
         </div>
-        <button className="icon-button" onClick={() => setTargetsOpen(true)} aria-label="Edit targets">
-          ⚙
+        <button className="icon-button" onClick={() => setTargetsOpen(true)} aria-label="Edit daily targets">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /><path d="m19.4 13.5 1.1.8-1.1 1.9-1.3-.5a7.8 7.8 0 0 1-1.5.9l-.2 1.4h-2.2l-.3-1.4a7.8 7.8 0 0 1-1.7 0l-.8 1.2-1.9-1.1.5-1.3a7.8 7.8 0 0 1-.9-1.5l-1.4-.2v-2.2l1.4-.3a7.8 7.8 0 0 1 0-1.7L6 8.7l1.1-1.9 1.3.5a7.8 7.8 0 0 1 1.5-.9l.2-1.4h2.2l.3 1.4a7.8 7.8 0 0 1 1.7 0l.8-1.2L17 6.3l-.5 1.3a7.8 7.8 0 0 1 .9 1.5l1.4.2v2.2l-1.4.3a7.8 7.8 0 0 1 0 1.7Z" /></svg>
         </button>
       </header>
 
-      <section className="summary-card">
-        <label className="date-control">
-          <span>Daily log</span>
-          <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-        </label>
+      <section className="page-intro">
+        <p className="eyebrow">YOUR DAILY CHECK-IN</p>
+        <h1>Today</h1>
+        <p className="intro-copy">A little awareness goes a long way, {profile?.display_name ?? "there"}.</p>
+      </section>
+
+      <section className="summary-card" aria-label="Daily nutrition summary">
+        <div className="summary-heading">
+          <div>
+            <p className="summary-kicker">DAILY INTAKE</p>
+            <h2>Calories</h2>
+          </div>
+          <label className="date-control">
+            <span className="visually-hidden">Choose log date</span>
+            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+          </label>
+        </div>
         <div className="calorie-total">
-          <strong>{metric(totals?.calories ?? 0)}</strong>
-          <span> / {metric(profile?.calorie_target ?? 0)} kcal</span>
+          <strong>{metric(totals?.calories ?? 0)}<span>kcal</span></strong>
+          <span className="goal-copy">of {metric(profile?.calorie_target ?? 0)} kcal goal</span>
         </div>
         <Progress label="Calories" current={totals?.calories ?? 0} target={profile?.calorie_target ?? 0} percent={progress[0] ?? 0} />
         <div className="macro-grid">
@@ -378,26 +395,32 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
           <Progress label="Carbs" current={totals?.carbs_g ?? 0} target={profile?.carbs_target_g ?? 0} percent={progress[2] ?? 0} unit="g" />
           <Progress label="Fat" current={totals?.fat_g ?? 0} target={profile?.fat_target_g ?? 0} percent={progress[3] ?? 0} unit="g" />
         </div>
+        <p className="remaining-copy">{metric(caloriesRemaining)} kcal remaining today</p>
       </section>
 
       <section className="scan-card">
-        <h2>Add food</h2>
-        <p className="muted">Scan a barcode first. Product photos stay on your phone.</p>
+        <p className="eyebrow">QUICK ADD</p>
+        <h2>Add food to your day</h2>
+        <p className="muted">Scan a barcode or choose something you’ve logged before.</p>
         <button className="primary-button" onClick={() => setScannerOpen(true)} disabled={busy}>
-          ▦ &nbsp; Scan UPC
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5v14M7 5v14m3-14v14m5-14v14m2-14v14m3-14v14" /><path d="M2 8h2m16 0h2M2 16h2m16 0h2" /></svg>
+          Scan a barcode
         </button>
+        <div className="manual-divider"><span>or enter the barcode</span></div>
         <form className="manual-upc" onSubmit={submitUpc}>
           <input
             inputMode="numeric"
+            pattern="[0-9]*"
             value={upc}
             onChange={(event) => setUpc(event.target.value)}
-            placeholder="Or enter a UPC"
-            aria-label="UPC barcode"
+            placeholder="UPC number"
+            aria-label="Enter UPC barcode"
           />
           <button type="submit" disabled={busy}>Look up</button>
         </form>
-        <button className="text-button" onClick={() => setLabelOpen(true)}>
-          Scan nutrition label instead
+        <button className="text-button label-scan-button" onClick={() => setLabelOpen(true)}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></svg>
+          Add from nutrition label
         </button>
         {!selected && /^\d{8,14}$/.test(upc) && (
           <button
@@ -488,8 +511,9 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
       <section className="catalog-card">
         <div className="section-heading">
           <div>
-            <h2>Previously scanned</h2>
-            <p className="muted">Choose a saved product to log it again.</p>
+            <p className="eyebrow">YOUR FOOD LIBRARY</p>
+            <h2>Recently scanned</h2>
+            <p className="muted">Tap a food to add it to today’s log.</p>
           </div>
         </div>
         <input
@@ -512,7 +536,10 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
       </section>
 
       <section className="history-card">
-        <h2>Meals · {date}</h2>
+        <div className="section-heading log-heading">
+          <div><p className="eyebrow">WHAT YOU’VE HAD</p><h2>Today’s log</h2></div>
+          <span className="meal-count">{meals.length} {meals.length === 1 ? "item" : "items"}</span>
+        </div>
         {meals.length === 0 ? (
           <p className="empty-state">Nothing logged for this day yet.</p>
         ) : (
@@ -600,6 +627,43 @@ function TargetField({
   return <label className="target-field">{label} ({unit})<input name={name} type="number" min="1" step="1" defaultValue={value} required /></label>;
 }
 
+function cameraErrorName(error: unknown): string {
+  if (error instanceof DOMException || error instanceof Error) return error.name;
+  return "";
+}
+
+function cameraErrorMessage(error: unknown): string {
+  if (!window.isSecureContext) {
+    return "Camera access needs a secure Home Assistant connection (HTTPS). You can still enter the barcode below.";
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return "This Home Assistant app/browser does not provide camera access to this page. Enter the barcode manually instead.";
+  }
+  switch (cameraErrorName(error)) {
+    case "NotAllowedError":
+    case "SecurityError":
+      return "Camera access was blocked by the app or browser. Check both the Home Assistant app permission and this site’s camera permission, then reopen the scanner.";
+    case "NotFoundError":
+    case "DevicesNotFoundError":
+      return "No camera was found. Enter the barcode manually instead.";
+    case "NotReadableError":
+    case "TrackStartError":
+      return "The camera could not start. Close other apps using the camera and try again.";
+    case "OverconstrainedError":
+      return "This device could not select a camera. Try again or enter the barcode manually.";
+    case "AbortError":
+      return "Camera startup was interrupted. Try opening the scanner again.";
+    default:
+      return "The camera could not start. Check the app and site permissions, or enter the barcode manually.";
+  }
+}
+
+function canRetryDefaultCamera(error: unknown): boolean {
+  return ["OverconstrainedError", "NotFoundError", "DevicesNotFoundError"].includes(
+    cameraErrorName(error),
+  );
+}
+
 function BarcodeScanner({
   onScan,
   onClose,
@@ -614,15 +678,46 @@ function BarcodeScanner({
   useEffect(() => {
     const reader = new BrowserMultiFormatReader();
     let active = true;
-    if (!videoRef.current) return;
-    void reader.decodeFromVideoDevice(undefined, videoRef.current, (result, _error, controls) => {
-      controlsRef.current = controls;
-      if (active && result) {
+    const video = videoRef.current;
+    if (!video) return;
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      setError(cameraErrorMessage(new Error("Camera API unavailable")));
+      return () => {
         active = false;
-        controls.stop();
-        onScan(result.getText());
+        controlsRef.current?.stop();
+      };
+    }
+    const scan = async (): Promise<void> => {
+      const constraints: MediaStreamConstraints[] = [
+        { video: { facingMode: { ideal: "environment" } }, audio: false },
+        { video: true, audio: false },
+      ];
+      for (const [index, constraint] of constraints.entries()) {
+        try {
+          const controls = await reader.decodeFromConstraints(
+            constraint,
+            video,
+            (result, _error, callbackControls) => {
+              controlsRef.current = callbackControls;
+              if (active && result) {
+                active = false;
+                callbackControls.stop();
+                onScan(result.getText());
+              }
+            },
+          );
+          if (!active) controls.stop();
+          else controlsRef.current = controls;
+          return;
+        } catch (error) {
+          if (index === 0 && canRetryDefaultCamera(error)) continue;
+          throw error;
+        }
       }
-    }).catch(() => setError("Camera unavailable. Check Home Assistant app camera permission or enter the UPC manually."));
+    };
+    void scan().catch((error: unknown) => {
+      if (active) setError(cameraErrorMessage(error));
+    });
     return () => {
       active = false;
       controlsRef.current?.stop();
@@ -630,15 +725,15 @@ function BarcodeScanner({
   }, [onScan]);
 
   return (
-    <div className="modal-backdrop">
-      <section className="camera-modal">
-        <div className="section-heading"><h2>Scan UPC</h2><button className="close-button" onClick={onClose}>×</button></div>
-        <div className="camera-frame"><video ref={videoRef} muted playsInline /></div>
-        <p className="muted">Hold the barcode inside the frame.</p>
+      <div className="modal-backdrop">
+        <section className="camera-modal">
+        <div className="section-heading"><div><p className="eyebrow">ADD TO YOUR DAY</p><h2>Scan barcode</h2></div><button className="close-button" onClick={onClose} aria-label="Close scanner">×</button></div>
+        <div className="camera-frame"><video ref={videoRef} muted playsInline aria-label="Barcode camera preview" /><div className="barcode-guide" /></div>
+        <p className="muted camera-tip">Hold the barcode steady inside the frame.</p>
         {error && <p role="alert" className="error-message">{error}</p>}
-        <button className="secondary-button full-button" onClick={onClose}>Cancel</button>
-      </section>
-    </div>
+        <button className="secondary-button full-button" onClick={onClose}>Enter barcode manually</button>
+        </section>
+      </div>
   );
 }
 
@@ -722,8 +817,22 @@ function LabelScanner({
     if (captured) return;
     let interval = 0;
     let active = true;
-    void navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false })
-      .then((stream) => {
+    const openCamera = async (): Promise<MediaStream> => {
+      if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Camera API unavailable");
+      }
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false,
+        });
+      } catch (error) {
+        if (!canRetryDefaultCamera(error)) throw error;
+        return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+    };
+    void openCamera()
+      .then(async (stream) => {
         if (!active) {
           stream.getTracks().forEach((track) => track.stop());
           return;
@@ -731,13 +840,17 @@ function LabelScanner({
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          void videoRef.current.play();
+          await videoRef.current.play();
         }
         interval = window.setInterval(() => {
           if (videoRef.current && canvasRef.current) setClarity(clarityScore(videoRef.current, canvasRef.current));
         }, 400);
       })
-      .catch(() => setError("Camera permission is unavailable. Check the Home Assistant app permission."));
+      .catch((error: unknown) => {
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        if (active) setError(cameraErrorMessage(error));
+      });
     return () => {
       active = false;
       window.clearInterval(interval);

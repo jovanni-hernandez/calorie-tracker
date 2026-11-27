@@ -27935,47 +27935,85 @@ function Eo({ hass: e }) {
 		a.protein_g / r.protein_target_g * 100,
 		a.carbs_g / r.carbs_target_g * 100,
 		a.fat_g / r.fat_target_g * 100
-	].map((e) => Math.min(100, Math.max(0, e))), [r, a]), I = f !== null && f.calories !== null && f.protein_g !== null && f.carbs_g !== null && f.fat_g !== null;
+	].map((e) => Math.min(100, Math.max(0, e))), [r, a]), I = Math.max(0, (r?.calorie_target ?? 0) - (a?.calories ?? 0)), fe = f !== null && f.calories !== null && f.protein_g !== null && f.carbs_g !== null && f.fat_g !== null;
 	return /* @__PURE__ */ (0, Z.jsxs)("main", {
 		className: "tracker",
 		children: [
 			/* @__PURE__ */ (0, Z.jsxs)("header", {
 				className: "topbar",
-				children: [/* @__PURE__ */ (0, Z.jsxs)("div", { children: [
-					/* @__PURE__ */ (0, Z.jsx)("p", {
-						className: "eyebrow",
-						children: "HOME ASSISTANT · NUTRITION"
-					}),
-					/* @__PURE__ */ (0, Z.jsx)("h1", { children: "Calorie Tracker" }),
-					/* @__PURE__ */ (0, Z.jsx)("p", {
-						className: "muted",
-						children: r?.display_name ?? "Your profile"
-					})
-				] }), /* @__PURE__ */ (0, Z.jsx)("button", {
+				children: [/* @__PURE__ */ (0, Z.jsxs)("div", {
+					className: "brand-lockup",
+					children: [/* @__PURE__ */ (0, Z.jsx)("span", {
+						className: "brand-mark",
+						"aria-hidden": "true",
+						children: /* @__PURE__ */ (0, Z.jsx)("svg", {
+							viewBox: "0 0 24 24",
+							children: /* @__PURE__ */ (0, Z.jsx)("path", { d: "M19.8 4.2C12.9 4.4 7.4 5.8 5 9.7c-1.5 2.5-.6 5.7 1.8 6.7 2.3 1 4.8-.4 5.8-2.6.9-1.9 2.5-4.7 7.2-8.4ZM5.2 20c2.4-4.8 5.7-8.2 10.1-10.6" })
+						})
+					}), /* @__PURE__ */ (0, Z.jsx)("span", {
+						className: "brand-name",
+						children: "NOURISH"
+					})]
+				}), /* @__PURE__ */ (0, Z.jsx)("button", {
 					className: "icon-button",
 					onClick: () => j(!0),
-					"aria-label": "Edit targets",
-					children: "⚙"
+					"aria-label": "Edit daily targets",
+					children: /* @__PURE__ */ (0, Z.jsxs)("svg", {
+						viewBox: "0 0 24 24",
+						"aria-hidden": "true",
+						children: [/* @__PURE__ */ (0, Z.jsx)("path", { d: "M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" }), /* @__PURE__ */ (0, Z.jsx)("path", { d: "m19.4 13.5 1.1.8-1.1 1.9-1.3-.5a7.8 7.8 0 0 1-1.5.9l-.2 1.4h-2.2l-.3-1.4a7.8 7.8 0 0 1-1.7 0l-.8 1.2-1.9-1.1.5-1.3a7.8 7.8 0 0 1-.9-1.5l-1.4-.2v-2.2l1.4-.3a7.8 7.8 0 0 1 0-1.7L6 8.7l1.1-1.9 1.3.5a7.8 7.8 0 0 1 1.5-.9l.2-1.4h2.2l.3 1.4a7.8 7.8 0 0 1 1.7 0l.8-1.2L17 6.3l-.5 1.3a7.8 7.8 0 0 1 .9 1.5l1.4.2v2.2l-1.4.3a7.8 7.8 0 0 1 0 1.7Z" })]
+					})
 				})]
 			}),
 			/* @__PURE__ */ (0, Z.jsxs)("section", {
-				className: "summary-card",
+				className: "page-intro",
 				children: [
-					/* @__PURE__ */ (0, Z.jsxs)("label", {
-						className: "date-control",
-						children: [/* @__PURE__ */ (0, Z.jsx)("span", { children: "Daily log" }), /* @__PURE__ */ (0, Z.jsx)("input", {
-							type: "date",
-							value: t,
-							onChange: (e) => n(e.target.value)
+					/* @__PURE__ */ (0, Z.jsx)("p", {
+						className: "eyebrow",
+						children: "YOUR DAILY CHECK-IN"
+					}),
+					/* @__PURE__ */ (0, Z.jsx)("h1", { children: "Today" }),
+					/* @__PURE__ */ (0, Z.jsxs)("p", {
+						className: "intro-copy",
+						children: [
+							"A little awareness goes a long way, ",
+							r?.display_name ?? "there",
+							"."
+						]
+					})
+				]
+			}),
+			/* @__PURE__ */ (0, Z.jsxs)("section", {
+				className: "summary-card",
+				"aria-label": "Daily nutrition summary",
+				children: [
+					/* @__PURE__ */ (0, Z.jsxs)("div", {
+						className: "summary-heading",
+						children: [/* @__PURE__ */ (0, Z.jsxs)("div", { children: [/* @__PURE__ */ (0, Z.jsx)("p", {
+							className: "summary-kicker",
+							children: "DAILY INTAKE"
+						}), /* @__PURE__ */ (0, Z.jsx)("h2", { children: "Calories" })] }), /* @__PURE__ */ (0, Z.jsxs)("label", {
+							className: "date-control",
+							children: [/* @__PURE__ */ (0, Z.jsx)("span", {
+								className: "visually-hidden",
+								children: "Choose log date"
+							}), /* @__PURE__ */ (0, Z.jsx)("input", {
+								type: "date",
+								value: t,
+								onChange: (e) => n(e.target.value)
+							})]
 						})]
 					}),
 					/* @__PURE__ */ (0, Z.jsxs)("div", {
 						className: "calorie-total",
-						children: [/* @__PURE__ */ (0, Z.jsx)("strong", { children: wo(a?.calories ?? 0) }), /* @__PURE__ */ (0, Z.jsxs)("span", { children: [
-							" / ",
-							wo(r?.calorie_target ?? 0),
-							" kcal"
-						] })]
+						children: [/* @__PURE__ */ (0, Z.jsxs)("strong", { children: [wo(a?.calories ?? 0), /* @__PURE__ */ (0, Z.jsx)("span", { children: "kcal" })] }), /* @__PURE__ */ (0, Z.jsxs)("span", {
+							className: "goal-copy",
+							children: [
+								"of ",
+								wo(r?.calorie_target ?? 0),
+								" kcal goal"
+							]
+						})]
 					}),
 					/* @__PURE__ */ (0, Z.jsx)(Do, {
 						label: "Calories",
@@ -28008,42 +28046,69 @@ function Eo({ hass: e }) {
 								unit: "g"
 							})
 						]
+					}),
+					/* @__PURE__ */ (0, Z.jsxs)("p", {
+						className: "remaining-copy",
+						children: [wo(I), " kcal remaining today"]
 					})
 				]
 			}),
 			/* @__PURE__ */ (0, Z.jsxs)("section", {
 				className: "scan-card",
 				children: [
-					/* @__PURE__ */ (0, Z.jsx)("h2", { children: "Add food" }),
+					/* @__PURE__ */ (0, Z.jsx)("p", {
+						className: "eyebrow",
+						children: "QUICK ADD"
+					}),
+					/* @__PURE__ */ (0, Z.jsx)("h2", { children: "Add food to your day" }),
 					/* @__PURE__ */ (0, Z.jsx)("p", {
 						className: "muted",
-						children: "Scan a barcode first. Product photos stay on your phone."
+						children: "Scan a barcode or choose something you’ve logged before."
 					}),
-					/* @__PURE__ */ (0, Z.jsx)("button", {
+					/* @__PURE__ */ (0, Z.jsxs)("button", {
 						className: "primary-button",
 						onClick: () => k(!0),
 						disabled: E,
-						children: "▦ \xA0 Scan UPC"
+						children: [/* @__PURE__ */ (0, Z.jsxs)("svg", {
+							viewBox: "0 0 24 24",
+							"aria-hidden": "true",
+							children: [/* @__PURE__ */ (0, Z.jsx)("path", { d: "M4 5v14M7 5v14m3-14v14m5-14v14m2-14v14m3-14v14" }), /* @__PURE__ */ (0, Z.jsx)("path", { d: "M2 8h2m16 0h2M2 16h2m16 0h2" })]
+						}), "Scan a barcode"]
+					}),
+					/* @__PURE__ */ (0, Z.jsx)("div", {
+						className: "manual-divider",
+						children: /* @__PURE__ */ (0, Z.jsx)("span", { children: "or enter the barcode" })
 					}),
 					/* @__PURE__ */ (0, Z.jsxs)("form", {
 						className: "manual-upc",
 						onSubmit: ae,
 						children: [/* @__PURE__ */ (0, Z.jsx)("input", {
 							inputMode: "numeric",
+							pattern: "[0-9]*",
 							value: w,
 							onChange: (e) => T(e.target.value),
-							placeholder: "Or enter a UPC",
-							"aria-label": "UPC barcode"
+							placeholder: "UPC number",
+							"aria-label": "Enter UPC barcode"
 						}), /* @__PURE__ */ (0, Z.jsx)("button", {
 							type: "submit",
 							disabled: E,
 							children: "Look up"
 						})]
 					}),
-					/* @__PURE__ */ (0, Z.jsx)("button", {
-						className: "text-button",
+					/* @__PURE__ */ (0, Z.jsxs)("button", {
+						className: "text-button label-scan-button",
 						onClick: () => ne(!0),
-						children: "Scan nutrition label instead"
+						children: [/* @__PURE__ */ (0, Z.jsxs)("svg", {
+							viewBox: "0 0 24 24",
+							"aria-hidden": "true",
+							children: [/* @__PURE__ */ (0, Z.jsx)("rect", {
+								x: "4",
+								y: "3",
+								width: "16",
+								height: "18",
+								rx: "2"
+							}), /* @__PURE__ */ (0, Z.jsx)("path", { d: "M8 8h8M8 12h8M8 16h5" })]
+						}), "Add from nutrition label"]
 					}),
 					!f && /^\d{8,14}$/.test(w) && /* @__PURE__ */ (0, Z.jsx)("button", {
 						className: "text-button",
@@ -28085,7 +28150,7 @@ function Eo({ hass: e }) {
 						})]
 					}),
 					/* @__PURE__ */ (0, Z.jsx)(To, { product: f }),
-					!I && /* @__PURE__ */ (0, Z.jsx)("p", {
+					!fe && /* @__PURE__ */ (0, Z.jsx)("p", {
 						className: "error-message",
 						children: "Fill in all four nutrition values before logging this product."
 					}),
@@ -28212,7 +28277,7 @@ function Eo({ hass: e }) {
 					/* @__PURE__ */ (0, Z.jsx)("button", {
 						className: "primary-button",
 						onClick: () => void oe(),
-						disabled: E || !I,
+						disabled: E || !fe,
 						children: "Add to daily log"
 					})
 				]
@@ -28222,10 +28287,17 @@ function Eo({ hass: e }) {
 				children: [
 					/* @__PURE__ */ (0, Z.jsx)("div", {
 						className: "section-heading",
-						children: /* @__PURE__ */ (0, Z.jsxs)("div", { children: [/* @__PURE__ */ (0, Z.jsx)("h2", { children: "Previously scanned" }), /* @__PURE__ */ (0, Z.jsx)("p", {
-							className: "muted",
-							children: "Choose a saved product to log it again."
-						})] })
+						children: /* @__PURE__ */ (0, Z.jsxs)("div", { children: [
+							/* @__PURE__ */ (0, Z.jsx)("p", {
+								className: "eyebrow",
+								children: "YOUR FOOD LIBRARY"
+							}),
+							/* @__PURE__ */ (0, Z.jsx)("h2", { children: "Recently scanned" }),
+							/* @__PURE__ */ (0, Z.jsx)("p", {
+								className: "muted",
+								children: "Tap a food to add it to today’s log."
+							})
+						] })
 					}),
 					/* @__PURE__ */ (0, Z.jsx)("input", {
 						className: "search-input",
@@ -28256,7 +28328,20 @@ function Eo({ hass: e }) {
 			}),
 			/* @__PURE__ */ (0, Z.jsxs)("section", {
 				className: "history-card",
-				children: [/* @__PURE__ */ (0, Z.jsxs)("h2", { children: ["Meals · ", t] }), s.length === 0 ? /* @__PURE__ */ (0, Z.jsx)("p", {
+				children: [/* @__PURE__ */ (0, Z.jsxs)("div", {
+					className: "section-heading log-heading",
+					children: [/* @__PURE__ */ (0, Z.jsxs)("div", { children: [/* @__PURE__ */ (0, Z.jsx)("p", {
+						className: "eyebrow",
+						children: "WHAT YOU’VE HAD"
+					}), /* @__PURE__ */ (0, Z.jsx)("h2", { children: "Today’s log" })] }), /* @__PURE__ */ (0, Z.jsxs)("span", {
+						className: "meal-count",
+						children: [
+							s.length,
+							" ",
+							s.length === 1 ? "item" : "items"
+						]
+					})]
+				}), s.length === 0 ? /* @__PURE__ */ (0, Z.jsx)("p", {
 					className: "empty-state",
 					children: "Nothing logged for this day yet."
 				}) : s.map((t) => /* @__PURE__ */ (0, Z.jsxs)("article", {
@@ -28303,11 +28388,11 @@ function Eo({ hass: e }) {
 					]
 				}, t.id))]
 			}),
-			te && /* @__PURE__ */ (0, Z.jsx)(ko, {
+			te && /* @__PURE__ */ (0, Z.jsx)(Mo, {
 				onClose: () => k(!1),
 				onScan: N
 			}),
-			A && /* @__PURE__ */ (0, Z.jsx)(Mo, {
+			A && /* @__PURE__ */ (0, Z.jsx)(Fo, {
 				onClose: () => ne(!1),
 				onExtract: (e) => void se(e)
 			}),
@@ -28401,15 +28486,59 @@ function Oo({ label: e, name: t, unit: n, value: r }) {
 		]
 	});
 }
-function ko({ onScan: e, onClose: t }) {
+function ko(e) {
+	return e instanceof DOMException || e instanceof Error ? e.name : "";
+}
+function Ao(e) {
+	if (!window.isSecureContext) return "Camera access needs a secure Home Assistant connection (HTTPS). You can still enter the barcode below.";
+	if (!navigator.mediaDevices?.getUserMedia) return "This Home Assistant app/browser does not provide camera access to this page. Enter the barcode manually instead.";
+	switch (ko(e)) {
+		case "NotAllowedError":
+		case "SecurityError": return "Camera access was blocked by the app or browser. Check both the Home Assistant app permission and this site’s camera permission, then reopen the scanner.";
+		case "NotFoundError":
+		case "DevicesNotFoundError": return "No camera was found. Enter the barcode manually instead.";
+		case "NotReadableError":
+		case "TrackStartError": return "The camera could not start. Close other apps using the camera and try again.";
+		case "OverconstrainedError": return "This device could not select a camera. Try again or enter the barcode manually.";
+		case "AbortError": return "Camera startup was interrupted. Try opening the scanner again.";
+		default: return "The camera could not start. Check the app and site permissions, or enter the barcode manually.";
+	}
+}
+function jo(e) {
+	return [
+		"OverconstrainedError",
+		"NotFoundError",
+		"DevicesNotFoundError"
+	].includes(ko(e));
+}
+function Mo({ onScan: e, onClose: t }) {
 	let n = (0, l.useRef)(null), r = (0, l.useRef)(null), [i, a] = (0, l.useState)("");
 	return (0, l.useEffect)(() => {
-		let t = new po(), i = !0;
-		if (n.current) return t.decodeFromVideoDevice(void 0, n.current, (t, n, a) => {
-			r.current = a, i && t && (i = !1, a.stop(), e(t.getText()));
-		}).catch(() => a("Camera unavailable. Check Home Assistant app camera permission or enter the UPC manually.")), () => {
+		let t = new po(), i = !0, o = n.current;
+		return o ? !window.isSecureContext || !navigator.mediaDevices?.getUserMedia ? (a(Ao(/* @__PURE__ */ Error("Camera API unavailable"))), () => {
 			i = !1, r.current?.stop();
-		};
+		}) : ((async () => {
+			for (let [n, a] of [{
+				video: { facingMode: { ideal: "environment" } },
+				audio: !1
+			}, {
+				video: !0,
+				audio: !1
+			}].entries()) try {
+				let n = await t.decodeFromConstraints(a, o, (t, n, a) => {
+					r.current = a, i && t && (i = !1, a.stop(), e(t.getText()));
+				});
+				i ? r.current = n : n.stop();
+				return;
+			} catch (e) {
+				if (n === 0 && jo(e)) continue;
+				throw e;
+			}
+		})().catch((e) => {
+			i && a(Ao(e));
+		}), () => {
+			i = !1, r.current?.stop();
+		}) : void 0;
 	}, [e]), /* @__PURE__ */ (0, Z.jsx)("div", {
 		className: "modal-backdrop",
 		children: /* @__PURE__ */ (0, Z.jsxs)("section", {
@@ -28417,23 +28546,28 @@ function ko({ onScan: e, onClose: t }) {
 			children: [
 				/* @__PURE__ */ (0, Z.jsxs)("div", {
 					className: "section-heading",
-					children: [/* @__PURE__ */ (0, Z.jsx)("h2", { children: "Scan UPC" }), /* @__PURE__ */ (0, Z.jsx)("button", {
+					children: [/* @__PURE__ */ (0, Z.jsxs)("div", { children: [/* @__PURE__ */ (0, Z.jsx)("p", {
+						className: "eyebrow",
+						children: "ADD TO YOUR DAY"
+					}), /* @__PURE__ */ (0, Z.jsx)("h2", { children: "Scan barcode" })] }), /* @__PURE__ */ (0, Z.jsx)("button", {
 						className: "close-button",
 						onClick: t,
+						"aria-label": "Close scanner",
 						children: "×"
 					})]
 				}),
-				/* @__PURE__ */ (0, Z.jsx)("div", {
+				/* @__PURE__ */ (0, Z.jsxs)("div", {
 					className: "camera-frame",
-					children: /* @__PURE__ */ (0, Z.jsx)("video", {
+					children: [/* @__PURE__ */ (0, Z.jsx)("video", {
 						ref: n,
 						muted: !0,
-						playsInline: !0
-					})
+						playsInline: !0,
+						"aria-label": "Barcode camera preview"
+					}), /* @__PURE__ */ (0, Z.jsx)("div", { className: "barcode-guide" })]
 				}),
 				/* @__PURE__ */ (0, Z.jsx)("p", {
-					className: "muted",
-					children: "Hold the barcode inside the frame."
+					className: "muted camera-tip",
+					children: "Hold the barcode steady inside the frame."
 				}),
 				i && /* @__PURE__ */ (0, Z.jsx)("p", {
 					role: "alert",
@@ -28443,13 +28577,13 @@ function ko({ onScan: e, onClose: t }) {
 				/* @__PURE__ */ (0, Z.jsx)("button", {
 					className: "secondary-button full-button",
 					onClick: t,
-					children: "Cancel"
+					children: "Enter barcode manually"
 				})
 			]
 		})
 	});
 }
-function Ao(e) {
+function No(e) {
 	let t = (t) => {
 		let n = e.match(t);
 		if (!n?.[1]) return null;
@@ -28466,7 +28600,7 @@ function Ao(e) {
 		fat: t(/total fat\s*[:\-]?\s*(\d+(?:[.,]\d+)?)/i)
 	};
 }
-function jo(e, t) {
+function Po(e, t) {
 	let n = t.getContext("2d", { willReadFrequently: !0 });
 	if (!n || !e.videoWidth) return 0;
 	let r = Math.max(1, Math.round(e.videoHeight / e.videoWidth * 160));
@@ -28479,19 +28613,32 @@ function jo(e, t) {
 	let c = s ? o / s - (a / s) ** 2 : 0;
 	return Math.max(0, Math.min(100, Math.round(c / 18)));
 }
-function Mo({ onExtract: t, onClose: n }) {
+function Fo({ onExtract: t, onClose: n }) {
 	let r = (0, l.useRef)(null), i = (0, l.useRef)(null), a = (0, l.useRef)(null), [o, s] = (0, l.useState)(0), [c, u] = (0, l.useState)(""), [d, f] = (0, l.useState)(""), [p, m] = (0, l.useState)(!1), [h, g] = (0, l.useState)("");
 	(0, l.useEffect)(() => {
 		if (c) return;
 		let e = 0, t = !0;
-		return navigator.mediaDevices.getUserMedia({
-			video: { facingMode: { ideal: "environment" } },
-			audio: !1
-		}).then((n) => {
-			t ? (a.current = n, r.current && (r.current.srcObject = n, r.current.play()), e = window.setInterval(() => {
-				r.current && i.current && s(jo(r.current, i.current));
+		return (async () => {
+			if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) throw Error("Camera API unavailable");
+			try {
+				return await navigator.mediaDevices.getUserMedia({
+					video: { facingMode: { ideal: "environment" } },
+					audio: !1
+				});
+			} catch (e) {
+				if (!jo(e)) throw e;
+				return navigator.mediaDevices.getUserMedia({
+					video: !0,
+					audio: !1
+				});
+			}
+		})().then(async (n) => {
+			t ? (a.current = n, r.current && (r.current.srcObject = n, await r.current.play()), e = window.setInterval(() => {
+				r.current && i.current && s(Po(r.current, i.current));
 			}, 400)) : n.getTracks().forEach((e) => e.stop());
-		}).catch(() => g("Camera permission is unavailable. Check the Home Assistant app permission.")), () => {
+		}).catch((e) => {
+			a.current?.getTracks().forEach((e) => e.stop()), a.current = null, t && g(Ao(e));
+		}), () => {
 			t = !1, window.clearInterval(e), a.current?.getTracks().forEach((e) => e.stop()), a.current = null;
 		};
 	}, [c]);
@@ -28516,7 +28663,7 @@ function Mo({ onExtract: t, onClose: n }) {
 				m(!1);
 			}
 		}
-	}, v = () => t(Ao(d)), y = o >= 35 && !p;
+	}, v = () => t(No(d)), y = o >= 35 && !p;
 	return /* @__PURE__ */ (0, Z.jsx)("div", {
 		className: "modal-backdrop",
 		children: /* @__PURE__ */ (0, Z.jsxs)("section", {
@@ -28591,12 +28738,7 @@ function Mo({ onExtract: t, onClose: n }) {
 	});
 }
 // src/panel.tsx
-var No = "/calorie-tracker-assets/ha-calorie-tracker-frontend.css";
-if (!document.querySelector(`link[href="${No}"]`)) {
-	let e = document.createElement("link");
-	e.rel = "stylesheet", e.href = No, document.head.append(e);
-}
-var Po = class extends HTMLElement {
+var Io = "/calorie-tracker-assets/ha-calorie-tracker-frontend.css", Lo = class extends HTMLElement {
 	root;
 	currentHass;
 	set hassObject(e) {
@@ -28606,10 +28748,15 @@ var Po = class extends HTMLElement {
 		this.hassObject = e;
 	}
 	connectedCallback() {
+		let e = this.getRootNode(), t = e.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? e : document.head;
+		if (!t.querySelector("link[data-calorie-tracker-styles]")) {
+			let e = document.createElement("link");
+			e.rel = "stylesheet", e.href = Io, e.dataset.calorieTrackerStyles = "true", t.append(e);
+		}
 		this.renderApp();
 	}
 	renderApp() {
 		this.currentHass && this.isConnected && (this.root ??= (0, u.createRoot)(this), this.root.render(/* @__PURE__ */ (0, Z.jsx)(Eo, { hass: this.currentHass })));
 	}
 };
-customElements.get("ha-calorie-tracker-panel") || customElements.define("ha-calorie-tracker-panel", Po);
+customElements.get("ha-calorie-tracker-panel") || customElements.define("ha-calorie-tracker-panel", Lo);

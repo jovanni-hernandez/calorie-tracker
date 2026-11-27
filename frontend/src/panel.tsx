@@ -3,12 +3,6 @@ import { CalorieTrackerApp, HomeAssistant } from "./tracker";
 import "./style.css";
 
 const stylePath = "/calorie-tracker-assets/ha-calorie-tracker-frontend.css";
-if (!document.querySelector(`link[href="${stylePath}"]`)) {
-  const stylesheet = document.createElement("link");
-  stylesheet.rel = "stylesheet";
-  stylesheet.href = stylePath;
-  document.head.append(stylesheet);
-}
 
 class CalorieTrackerPanel extends HTMLElement {
   private root?: Root;
@@ -24,6 +18,15 @@ class CalorieTrackerPanel extends HTMLElement {
   }
 
   connectedCallback(): void {
+    const root = this.getRootNode();
+    const styleTarget = root.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? root as ShadowRoot : document.head;
+    if (!styleTarget.querySelector('link[data-calorie-tracker-styles]')) {
+      const stylesheet = document.createElement("link");
+      stylesheet.rel = "stylesheet";
+      stylesheet.href = stylePath;
+      stylesheet.dataset.calorieTrackerStyles = "true";
+      styleTarget.append(stylesheet);
+    }
     this.renderApp();
   }
 
