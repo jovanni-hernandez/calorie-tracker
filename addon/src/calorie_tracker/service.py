@@ -13,6 +13,8 @@ from calorie_tracker.config import get_settings
 from calorie_tracker.models import BarcodeCache, Meal, Product, Profile
 from calorie_tracker.nutrition import lookup_barcode
 
+LEGACY_NUTRITION_BASIS = "legacy_per_100g"
+
 
 @dataclass(frozen=True)
 class ProductLookupOutcome:
@@ -80,12 +82,20 @@ def lookup_or_cache(
     """Return a cached product or make one ordered lookup for an unseen UPC."""
     normalized = barcode.strip()
     cached = session.scalar(select(BarcodeCache).where(BarcodeCache.upc == normalized))
-    if cached and not refresh:
+    cached_product = (
+        session.get(Product, cached.product_id) if cached and cached.product_id else None
+    )
+    legacy_product = (
+        cached_product is not None and cached_product.nutrition_basis == LEGACY_NUTRITION_BASIS
+    )
+    if cached and not refresh and not legacy_product:
         return ProductLookupOutcome(
-            product=session.get(Product, cached.product_id) if cached.product_id else None,
+            product=cached_product,
             providers=cached.provider_statuses,
         )
-    existing_product = session.scalar(select(Product).where(Product.upc == normalized))
+    existing_product = cached_product or session.scalar(
+        select(Product).where(Product.upc == normalized)
+    )
     if cached:
         session.delete(cached)
         session.flush()
@@ -138,6 +148,7 @@ def lookup_or_cache(
         for key, value in facts.items():
             if key in updatable_fields:
                 setattr(product, key, value)
+        product.nutrition_basis = "serving"
         product.updated_at = now
         product.lookup_status = "found"
     else:

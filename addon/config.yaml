@@ -1,7 +1,7 @@
 name: "HA Calorie Tracker"
 slug: "ha_calorie_tracker"
 description: "Mobile-first UPC and nutrition-label calorie tracker"
-version: "0.2.0"
+version: "0.2.1"
 startup: application
 boot: auto
 init: false

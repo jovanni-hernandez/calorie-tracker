@@ -11,7 +11,7 @@ from sqlalchemy.pool import StaticPool
 
 from calorie_tracker.database import Base, get_session
 from calorie_tracker.main import app
-from calorie_tracker.models import BarcodeCache
+from calorie_tracker.models import BarcodeCache, Product
 from calorie_tracker.nutrition import BarcodeLookupResult
 from calorie_tracker.service import lookup_or_cache
 
@@ -152,6 +152,72 @@ def test_barcode_cache_avoids_repeated_provider_calls(
         assert first.product is not None and second.product is not None
         assert first.product.id == second.product.id
         assert second.providers == {"usda": "found", "open_food_facts": "not_checked"}
+        assert calls == 1
+
+
+def test_legacy_usda_product_is_refreshed_and_marked_as_per_serving(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Old USDA per-100-g cache entries refresh once before reuse."""
+    from calorie_tracker import service
+
+    calls = 0
+
+    def fake_lookup(_barcode: str) -> BarcodeLookupResult:
+        nonlocal calls
+        calls += 1
+        return BarcodeLookupResult(
+            facts={
+                "name": "Strawberry yogurt drink",
+                "brand": "Chobani",
+                "source": "open_food_facts",
+                "serving_size": "1 bottle (296 mL)",
+                "serving_weight_g": 296,
+                "calories": 170,
+                "protein_g": 20,
+                "carbs_g": 14,
+                "fat_g": 3,
+            },
+            providers={"usda": "found", "open_food_facts": "found"},
+        )
+
+    monkeypatch.setattr(service, "lookup_barcode", fake_lookup)
+    with TestSession() as session:
+        product = Product(
+            upc="818290017710",
+            name="Strawberry yogurt drink",
+            source="usda",
+            lookup_status="found",
+            serving_size="1 Bottle",
+            serving_weight_g=None,
+            calories=57.4,
+            protein_g=6.76,
+            carbs_g=4.73,
+            fat_g=1.01,
+            updated_at=datetime.now(UTC),
+            nutrition_basis=service.LEGACY_NUTRITION_BASIS,
+        )
+        session.add(product)
+        session.flush()
+        session.add(
+            BarcodeCache(
+                upc="818290017710",
+                status="found",
+                product_id=product.id,
+                checked_at=datetime.now(UTC),
+                provider_statuses={"usda": "found", "open_food_facts": "not_checked"},
+            )
+        )
+        session.commit()
+
+        refreshed = lookup_or_cache(session, "818290017710")
+        reused = lookup_or_cache(session, "818290017710")
+
+        assert refreshed.product is not None
+        assert refreshed.product.calories == 170
+        assert refreshed.product.protein_g == 20
+        assert refreshed.product.nutrition_basis == "serving"
+        assert reused.product is not None and reused.product.id == refreshed.product.id
         assert calls == 1
 
 

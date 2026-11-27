@@ -51,6 +51,27 @@ def _has_complete_nutrition(facts: dict[str, Any]) -> bool:
     )
 
 
+def _usda_serving_details(food: dict[str, Any]) -> tuple[float, float | None, str | None]:
+    """Convert USDA's per-100-g nutrients and serving quantity to a usable basis."""
+    size = _number(food.get("servingSize"))
+    unit = str(food.get("servingSizeUnit", "")).strip().lower()
+    grams_per_unit: dict[str, float] = {
+        "g": 1.0,
+        "mlt": 1.0,
+        "ml": 1.0,
+        "kg": 1000.0,
+        "mg": 0.001,
+        "oz": 28.349523125,
+        "l": 1000.0,
+    }
+    if size is None or size <= 0 or unit not in grams_per_unit:
+        return 1.0, 100.0, "100 g"
+    quantity_in_grams = size * grams_per_unit[unit]
+    is_volume = unit in {"mlt", "ml", "l"}
+    serving_size = food.get("householdServingFullText") or f"{size:g} {unit}"
+    return quantity_in_grams / 100.0, None if is_volume else quantity_in_grams, serving_size
+
+
 def _from_usda(barcode: str) -> dict[str, Any] | None:
     key = get_settings().usda_api_key.get_secret_value()
     if not key:
@@ -67,21 +88,28 @@ def _from_usda(barcode: str) -> dict[str, Any] | None:
         if str(food.get("gtinUpc", "")).lstrip("0") != barcode.lstrip("0"):
             continue
         nutrients = food.get("foodNutrients", [])
+        scale, serving_weight_g, serving_size = _usda_serving_details(food)
 
         return {
             "name": food.get("description") or f"UPC {barcode}",
             "brand": food.get("brandOwner"),
             "source": "usda",
-            "serving_size": food.get("householdServingFullText"),
-            "serving_weight_g": _number(food.get("servingSize"))
-            if food.get("servingSizeUnit") == "g"
-            else None,
-            "calories": _nutrient_value(nutrients, "energy"),
-            "protein_g": _nutrient_value(nutrients, "protein"),
-            "carbs_g": _nutrient_value(nutrients, "carbohydrate"),
-            "fat_g": _nutrient_value(nutrients, "total lipid"),
+            "serving_size": serving_size,
+            "serving_weight_g": serving_weight_g,
+            "calories": _scaled_nutrient_value(nutrients, scale, "energy"),
+            "protein_g": _scaled_nutrient_value(nutrients, scale, "protein"),
+            "carbs_g": _scaled_nutrient_value(nutrients, scale, "carbohydrate"),
+            "fat_g": _scaled_nutrient_value(nutrients, scale, "total lipid"),
         }
     return None
+
+
+def _scaled_nutrient_value(
+    nutrients: list[dict[str, Any]], scale: float, *names: str
+) -> float | None:
+    """Scale one USDA per-100-g nutrient to the product's serving."""
+    value = _nutrient_value(nutrients, *names)
+    return value * scale if value is not None else None
 
 
 def _from_open_food_facts(barcode: str) -> dict[str, Any] | None:
@@ -115,7 +143,7 @@ def _from_open_food_facts(barcode: str) -> dict[str, Any] | None:
 
 
 def lookup_barcode(barcode: str) -> BarcodeLookupResult:
-    """Try USDA, then Open Food Facts, and retain each provider's outcome."""
+    """Try both providers, preferring explicit per-serving Open Food Facts data."""
     settings = get_settings()
     has_usda_key = bool(settings.usda_api_key.get_secret_value())
     providers: dict[str, ProviderStatus] = {
@@ -133,8 +161,6 @@ def lookup_barcode(barcode: str) -> BarcodeLookupResult:
             providers["usda"] = "found" if result else "not_found"
             if result:
                 candidates.append(result)
-                if _has_complete_nutrition(result):
-                    return BarcodeLookupResult(facts=result, providers=providers)
 
     try:
         result = _from_open_food_facts(barcode)
@@ -153,6 +179,9 @@ def lookup_barcode(barcode: str) -> BarcodeLookupResult:
 
     if not candidates:
         return BarcodeLookupResult(facts=None, providers=providers)
+    usda_result = next((item for item in candidates if item.get("source") == "usda"), None)
+    if usda_result:
+        return BarcodeLookupResult(facts=usda_result, providers=providers)
     return BarcodeLookupResult(
         facts=max(
             candidates,

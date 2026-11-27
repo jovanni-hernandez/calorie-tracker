@@ -50,7 +50,7 @@ from calorie_tracker.weight_model import (
     calculate_weight_loss_plan,
 )
 
-app = FastAPI(title="HA Calorie Tracker API", version="0.2.0")
+app = FastAPI(title="HA Calorie Tracker API", version="0.2.1")
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
