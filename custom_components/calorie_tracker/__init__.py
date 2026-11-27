@@ -136,7 +136,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry[Any]) -> boo
             webcomponent_name="ha-calorie-tracker-panel",
             sidebar_title="Calorie Tracker",
             sidebar_icon="mdi:food-apple",
-            module_url=f"{ASSET_PATH}/calorie-tracker-panel.js",
+            module_url=f"{ASSET_PATH}/calorie-tracker-panel.js?v=0.1.4",
             require_admin=False,
             handle_safe_area=True,
         )

@@ -28840,7 +28840,7 @@ function Lo({ onExtract: t, onClose: n }) {
 	});
 }
 // src/panel.tsx
-var Ro = "/calorie-tracker-assets/ha-calorie-tracker-frontend.css", zo = class extends HTMLElement {
+var Ro = "/calorie-tracker-assets/ha-calorie-tracker-frontend.css?v=0.1.4", zo = class extends HTMLElement {
 	root;
 	appRoot;
 	currentHass;
