@@ -50,7 +50,24 @@ def main() -> None:
         try:
             driver.set_window_size(390, 844)
             driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-                "source": f"window.localStorage.setItem('hassTokens', {token_literal});",
+                "source": f"""
+                    window.localStorage.setItem('hassTokens', {token_literal});
+                    window.__calorieCameraStats = {{ requests: 0, stops: 0 }};
+                    if (navigator.mediaDevices?.getUserMedia) {{
+                      const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+                      navigator.mediaDevices.getUserMedia = (...args) => {{
+                        window.__calorieCameraStats.requests += 1;
+                        return originalGetUserMedia(...args);
+                      }};
+                    }}
+                    if (window.MediaStreamTrack?.prototype?.stop) {{
+                      const originalStop = window.MediaStreamTrack.prototype.stop;
+                      window.MediaStreamTrack.prototype.stop = function(...args) {{
+                        window.__calorieCameraStats.stops += 1;
+                        return originalStop.apply(this, args);
+                      }};
+                    }}
+                """,
             })
             driver.get(f"{HA_URL}/calorie-tracker")
             find_panel = """
@@ -78,7 +95,8 @@ def main() -> None:
                       return null;
                     };
                     const panel = findPanel(document);
-                    return !!panel && panel.innerText.trim().length > 0;
+                    const app = panel?.shadowRoot?.querySelector('.tracker');
+                    return !!app && app.innerText.trim().length > 0;
                     """
             try:
                 WebDriverWait(driver, 45).until(
@@ -114,18 +132,39 @@ def main() -> None:
                   return null;
                 };
                 const panel = findPanel(document);
-                const app = panel?.querySelector('.tracker');
-                const summary = panel?.querySelector('.summary-card');
+                const shadow = panel?.shadowRoot;
+                const app = shadow?.querySelector('.tracker');
+                const summary = shadow?.querySelector('.summary-card');
                 if (!app || !summary) return { ready: false };
-                const root = panel.getRootNode();
-                const stylesheet = root.querySelector('link[data-calorie-tracker-styles]');
+                const stylesheet = shadow.querySelector('link[data-calorie-tracker-styles]');
+                const outerRoot = panel.getRootNode();
+                const findDeep = (root, selector, found = []) => {
+                  found.push(...root.querySelectorAll(selector));
+                  for (const node of root.querySelectorAll('*')) {
+                    if (node.shadowRoot) findDeep(node.shadowRoot, selector, found);
+                  }
+                  return found;
+                };
+                const menuButtons = findDeep(document, 'ha-menu-button').map((button) => {
+                  const rect = button.getBoundingClientRect();
+                  const style = getComputedStyle(button);
+                  return {
+                    display: style.display,
+                    visibility: style.visibility,
+                    width: rect.width,
+                    height: rect.height,
+                    rootKind: button.getRootNode().nodeType,
+                  };
+                });
                 return {
                   ready: true,
                   background: getComputedStyle(app).backgroundColor,
                   cardRadius: getComputedStyle(summary).borderRadius,
                   stylesheet: stylesheet?.href || null,
                   stylesheetLoaded: stylesheet?.sheet !== null,
-                  rootKind: root.nodeType,
+                  isolatedShadowRoot: shadow.host === panel,
+                  outerButtonCount: outerRoot.querySelectorAll('button').length,
+                  menuButtons,
                   trackerColor: getComputedStyle(app).color,
                   viewport: window.innerWidth,
                   documentWidth: document.documentElement.scrollWidth,
@@ -136,6 +175,54 @@ def main() -> None:
                 raise RuntimeError(f"Panel stylesheet did not apply: {visual_check}")
             if visual_check["documentWidth"] > visual_check["viewport"] + 2:
                 raise RuntimeError(f"Mobile layout overflows horizontally: {visual_check}")
+            menu_button = driver.execute_script(
+                """
+                const findPanel = (root) => {
+                  for (const node of root.querySelectorAll('*')) {
+                    if (node.localName === 'ha-calorie-tracker-panel') return node;
+                    if (node.shadowRoot) {
+                      const nested = findPanel(node.shadowRoot);
+                      if (nested) return nested;
+                    }
+                  }
+                  return null;
+                };
+                const button = findPanel(document)?.shadowRoot?.querySelector('.ha-menu-button');
+                button?.click();
+                return Boolean(button);
+                """
+            )
+            if not menu_button:
+                raise RuntimeError("The panel is missing its Home Assistant menu button.")
+            WebDriverWait(driver, 5).until(
+                lambda browser: browser.execute_script(
+                    """
+                    const findDeep = (root, selector, found = []) => {
+                      found.push(...root.querySelectorAll(selector));
+                      for (const node of root.querySelectorAll('*')) {
+                        if (node.shadowRoot) findDeep(node.shadowRoot, selector, found);
+                      }
+                      return found;
+                    };
+                    return findDeep(document, 'ha-drawer').some((drawer) => drawer.open);
+                    """
+                )
+            )
+            driver.execute_script(
+                """
+                const findPanel = (root) => {
+                  for (const node of root.querySelectorAll('*')) {
+                    if (node.localName === 'ha-calorie-tracker-panel') return node;
+                    if (node.shadowRoot) {
+                      const nested = findPanel(node.shadowRoot);
+                      if (nested) return nested;
+                    }
+                  }
+                  return null;
+                };
+                findPanel(document)?.shadowRoot?.querySelector('.ha-menu-button')?.click();
+                """
+            )
 
             for button_text in ("Scan a barcode", "Add from nutrition label"):
                 opened = driver.execute_script(
@@ -151,7 +238,7 @@ def main() -> None:
                       return null;
                     };
                     const panel = findPanel(document);
-                    const button = Array.from(panel.querySelectorAll('button'))
+                    const button = Array.from(panel.shadowRoot.querySelectorAll('button'))
                       .find((candidate) => candidate.innerText.trim() === arguments[0]);
                     button?.click();
                     return Boolean(button);
@@ -173,18 +260,99 @@ def main() -> None:
                           }
                           return null;
                         };
-                        const modal = findPanel(document)?.querySelector('.camera-modal');
+                        const shadow = findPanel(document)?.shadowRoot;
+                        const modal = shadow?.querySelector('.camera-modal');
                         if (!modal) return false;
                         const video = modal.querySelector('video');
                         const error = modal.querySelector('[role="alert"]')?.innerText || '';
                         return video?.readyState >= 2 && video.videoWidth > 0
-                          ? { ready: true }
+                          ? {
+                              ready: true,
+                              requests: window.__calorieCameraStats?.requests ?? 0,
+                              torchAvailable: Boolean(modal.querySelector('.torch-button')),
+                            }
                           : error ? { error } : false;
                         """
                     )
                 )
                 if not camera_state.get("ready"):
                     raise RuntimeError(f"Camera flow failed for {button_text}: {camera_state}")
+                if button_text == "Scan a barcode" and camera_state["torchAvailable"]:
+                    driver.execute_script(
+                        """
+                        const findPanel = (root) => {
+                          for (const node of root.querySelectorAll('*')) {
+                            if (node.localName === 'ha-calorie-tracker-panel') return node;
+                            if (node.shadowRoot) {
+                              const nested = findPanel(node.shadowRoot);
+                              if (nested) return nested;
+                            }
+                          }
+                          return null;
+                        };
+                        findPanel(document)?.shadowRoot?.querySelector('.torch-button')?.click();
+                        """
+                    )
+                    WebDriverWait(driver, 5).until(
+                        lambda browser: browser.execute_script(
+                            """
+                            const findPanel = (root) => {
+                              for (const node of root.querySelectorAll('*')) {
+                                if (node.localName === 'ha-calorie-tracker-panel') return node;
+                                if (node.shadowRoot) {
+                                  const nested = findPanel(node.shadowRoot);
+                                  if (nested) return nested;
+                                }
+                              }
+                              return null;
+                            };
+                            return findPanel(document)?.shadowRoot
+                              ?.querySelector('.torch-button')?.getAttribute('aria-pressed') === 'true';
+                            """
+                        )
+                    )
+                    driver.execute_script(
+                        """
+                        const findPanel = (root) => {
+                          for (const node of root.querySelectorAll('*')) {
+                            if (node.localName === 'ha-calorie-tracker-panel') return node;
+                            if (node.shadowRoot) {
+                              const nested = findPanel(node.shadowRoot);
+                              if (nested) return nested;
+                            }
+                          }
+                          return null;
+                        };
+                        findPanel(document)?.shadowRoot?.querySelector('.torch-button')?.click();
+                        """
+                    )
+                camera_requests = camera_state["requests"]
+                time.sleep(2)
+                stable_camera = driver.execute_script(
+                    """
+                    const findPanel = (root) => {
+                      for (const node of root.querySelectorAll('*')) {
+                        if (node.localName === 'ha-calorie-tracker-panel') return node;
+                        if (node.shadowRoot) {
+                          const nested = findPanel(node.shadowRoot);
+                          if (nested) return nested;
+                        }
+                      }
+                      return null;
+                    };
+                    const modal = findPanel(document)?.shadowRoot?.querySelector('.camera-modal');
+                    const video = modal?.querySelector('video');
+                    return {
+                      ready: video?.readyState >= 2 && video.videoWidth > 0,
+                      requests: window.__calorieCameraStats?.requests ?? 0,
+                    };
+                    """
+                )
+                if not stable_camera["ready"] or stable_camera["requests"] != camera_requests:
+                    raise RuntimeError(
+                        f"Camera did not stay stable for {button_text}: "
+                        f"initial={camera_requests}, after={stable_camera}"
+                    )
                 driver.execute_script(
                     """
                     const findPanel = (root) => {
@@ -197,7 +365,7 @@ def main() -> None:
                       }
                       return null;
                     };
-                    findPanel(document)?.querySelector('.camera-modal .close-button')?.click();
+                    findPanel(document)?.shadowRoot?.querySelector('.camera-modal .close-button')?.click();
                     """
                 )
                 WebDriverWait(driver, 5).until(
@@ -213,7 +381,7 @@ def main() -> None:
                           }
                           return null;
                         };
-                        return !findPanel(document)?.querySelector('.camera-modal');
+                        return !findPanel(document)?.shadowRoot?.querySelector('.camera-modal');
                         """
                     )
                 )
@@ -237,10 +405,11 @@ def main() -> None:
                   }
                   return null;
                 };
-                return findPanel(document).innerText;
+                return findPanel(document).shadowRoot.querySelector('.tracker').innerText;
                 """
             )
             print(f"PASS: live panel rendered at 390x844; screenshot={screenshot}")
+            print("HA shell check:", visual_check)
             print("Visible panel text:", " ".join(text.split())[:240])
         finally:
             driver.quit()

@@ -55,6 +55,12 @@ interface TrackerProps {
   hass: HomeAssistant;
 }
 
+function toggleHomeAssistantMenu(event: React.MouseEvent<HTMLButtonElement>): void {
+  event.currentTarget.dispatchEvent(
+    new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }),
+  );
+}
+
 const zonedParts = (value: Date, timeZone?: string): Record<string, string> => {
   const formatter = new Intl.DateTimeFormat("en-CA", {
     ...(timeZone ? { timeZone } : {}),
@@ -357,11 +363,16 @@ export function CalorieTrackerApp({ hass }: TrackerProps): React.ReactElement {
   return (
     <main className="tracker">
       <header className="topbar">
-        <div className="brand-lockup">
-          <span className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M19.8 4.2C12.9 4.4 7.4 5.8 5 9.7c-1.5 2.5-.6 5.7 1.8 6.7 2.3 1 4.8-.4 5.8-2.6.9-1.9 2.5-4.7 7.2-8.4ZM5.2 20c2.4-4.8 5.7-8.2 10.1-10.6" /></svg>
-          </span>
-          <span className="brand-name">NOURISH</span>
+        <div className="topbar-left">
+          <button className="icon-button ha-menu-button" onClick={toggleHomeAssistantMenu} aria-label="Open Home Assistant menu">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button>
+          <div className="brand-lockup">
+            <span className="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M19.8 4.2C12.9 4.4 7.4 5.8 5 9.7c-1.5 2.5-.6 5.7 1.8 6.7 2.3 1 4.8-.4 5.8-2.6.9-1.9 2.5-4.7 7.2-8.4ZM5.2 20c2.4-4.8 5.7-8.2 10.1-10.6" /></svg>
+            </span>
+            <span className="brand-name">NOURISH</span>
+          </div>
         </div>
         <button className="icon-button" onClick={() => setTargetsOpen(true)} aria-label="Edit daily targets">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" /><path d="m19.4 13.5 1.1.8-1.1 1.9-1.3-.5a7.8 7.8 0 0 1-1.5.9l-.2 1.4h-2.2l-.3-1.4a7.8 7.8 0 0 1-1.7 0l-.8 1.2-1.9-1.1.5-1.3a7.8 7.8 0 0 1-.9-1.5l-1.4-.2v-2.2l1.4-.3a7.8 7.8 0 0 1 0-1.7L6 8.7l1.1-1.9 1.3.5a7.8 7.8 0 0 1 1.5-.9l.2-1.4h2.2l.3 1.4a7.8 7.8 0 0 1 1.7 0l.8-1.2L17 6.3l-.5 1.3a7.8 7.8 0 0 1 .9 1.5l1.4.2v2.2l-1.4.3a7.8 7.8 0 0 1 0 1.7Z" /></svg>
@@ -673,11 +684,21 @@ function BarcodeScanner({
 }): React.ReactElement {
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
+  const onScanRef = useRef(onScan);
+  const hasScannedRef = useRef(false);
   const [error, setError] = useState("");
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchBusy, setTorchBusy] = useState(false);
+
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
 
   useEffect(() => {
     const reader = new BrowserMultiFormatReader();
     let active = true;
+    let scannerControls: IScannerControls | null = null;
     const video = videoRef.current;
     if (!video) return;
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
@@ -694,20 +715,32 @@ function BarcodeScanner({
       ];
       for (const [index, constraint] of constraints.entries()) {
         try {
-          const controls = await reader.decodeFromConstraints(
+          const startedControls = await reader.decodeFromConstraints(
             constraint,
             video,
             (result, _error, callbackControls) => {
               controlsRef.current = callbackControls;
-              if (active && result) {
+              if (active && result && !hasScannedRef.current) {
+                hasScannedRef.current = true;
                 active = false;
                 callbackControls.stop();
-                onScan(result.getText());
+                onScanRef.current(result.getText());
               }
             },
           );
-          if (!active) controls.stop();
-          else controlsRef.current = controls;
+          scannerControls = startedControls;
+          if (!active) startedControls.stop();
+          else {
+            controlsRef.current = startedControls;
+            const stream = video.srcObject;
+            if (stream instanceof MediaStream) {
+              const track = stream.getVideoTracks()[0];
+              const capabilities = track?.getCapabilities() as
+                | (MediaTrackCapabilities & { torch?: boolean })
+                | undefined;
+              setTorchSupported(Boolean(capabilities?.torch));
+            }
+          }
           return;
         } catch (error) {
           if (index === 0 && canRetryDefaultCamera(error)) continue;
@@ -720,15 +753,51 @@ function BarcodeScanner({
     });
     return () => {
       active = false;
-      controlsRef.current?.stop();
+      scannerControls?.stop();
+      controlsRef.current = null;
     };
-  }, [onScan]);
+  }, []);
+
+  const toggleTorch = async (): Promise<void> => {
+    const stream = videoRef.current?.srcObject;
+    const track = stream instanceof MediaStream ? stream.getVideoTracks()[0] : undefined;
+    if (!track || !torchSupported || torchBusy) return;
+
+    const nextTorchState = !torchOn;
+    setTorchBusy(true);
+    try {
+      await track.applyConstraints({
+        advanced: [{ torch: nextTorchState } as MediaTrackConstraintSet],
+      });
+      setTorchOn(nextTorchState);
+      setError("");
+    } catch {
+      setError("This camera could not change its flash setting. You can continue scanning without it.");
+    } finally {
+      setTorchBusy(false);
+    }
+  };
 
   return (
       <div className="modal-backdrop">
         <section className="camera-modal">
         <div className="section-heading"><div><p className="eyebrow">ADD TO YOUR DAY</p><h2>Scan barcode</h2></div><button className="close-button" onClick={onClose} aria-label="Close scanner">×</button></div>
-        <div className="camera-frame"><video ref={videoRef} muted playsInline aria-label="Barcode camera preview" /><div className="barcode-guide" /></div>
+        <div className="camera-frame">
+          <video ref={videoRef} muted playsInline aria-label="Barcode camera preview" />
+          <div className="barcode-guide" />
+          {torchSupported && (
+            <button
+              className={`torch-button${torchOn ? " torch-button-on" : ""}`}
+              onClick={() => void toggleTorch()}
+              disabled={torchBusy}
+              aria-label={torchOn ? "Turn flash off" : "Turn flash on"}
+              aria-pressed={torchOn}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4.5 13h6l-.5 9 9-12h-6l.5-8Z" /></svg>
+              {torchBusy ? "Changing…" : torchOn ? "Flash on" : "Flash"}
+            </button>
+          )}
+        </div>
         <p className="muted camera-tip">Hold the barcode steady inside the frame.</p>
         {error && <p role="alert" className="error-message">{error}</p>}
         <button className="secondary-button full-button" onClick={onClose}>Enter barcode manually</button>

@@ -27767,7 +27767,14 @@ var vo = /* @__PURE__ */ t(((e) => {
 	e.Fragment = i, e.jsx = c, e.jsxs = c;
 })), Z = (/* @__PURE__ */ t(((e, t) => {
 	t.exports = vo();
-})))(), yo = (e, t) => {
+})))();
+function yo(e) {
+	e.currentTarget.dispatchEvent(new CustomEvent("hass-toggle-menu", {
+		bubbles: !0,
+		composed: !0
+	}));
+}
+var bo = (e, t) => {
 	let n = new Intl.DateTimeFormat("en-CA", {
 		...t ? { timeZone: t } : {},
 		year: "numeric",
@@ -27778,23 +27785,23 @@ var vo = /* @__PURE__ */ t(((e) => {
 		hourCycle: "h23"
 	});
 	return Object.fromEntries(n.formatToParts(e).map(({ type: e, value: t }) => [e, t]));
-}, bo = (e) => {
-	let t = yo(/* @__PURE__ */ new Date(), e);
+}, xo = (e) => {
+	let t = bo(/* @__PURE__ */ new Date(), e);
 	return `${t.year}-${t.month}-${t.day}`;
-}, xo = (e = /* @__PURE__ */ new Date(), t) => {
-	let n = yo(e, t);
+}, So = (e = /* @__PURE__ */ new Date(), t) => {
+	let n = bo(e, t);
 	return `${n.year}-${n.month}-${n.day}T${n.hour}:${n.minute}`;
-}, So = (e, t) => {
+}, Co = (e, t) => {
 	if (!t) return new Date(e).toISOString();
 	let [n, r] = e.split("T"), [i, a, o] = (n ?? "").split("-").map(Number), [s, c] = (r ?? "").split(":").map(Number), l = Date.UTC(i ?? 0, (a ?? 1) - 1, o ?? 1, s ?? 0, c ?? 0), u = l;
 	for (let e = 0; e < 2; e += 1) {
-		let e = yo(new Date(u), t), n = Date.UTC(Number(e.year), Number(e.month) - 1, Number(e.day), Number(e.hour), Number(e.minute));
+		let e = bo(new Date(u), t), n = Date.UTC(Number(e.year), Number(e.month) - 1, Number(e.day), Number(e.hour), Number(e.minute));
 		u += l - n;
 	}
 	return new Date(u).toISOString();
-}, Co = (e, t, n, r) => e.callApi(t, `calorie_tracker/api/v1/${n}`, r), wo = (e) => Math.round(e).toLocaleString();
-function To({ product: e }) {
-	let t = (e) => e === null ? "—" : wo(e);
+}, wo = (e, t, n, r) => e.callApi(t, `calorie_tracker/api/v1/${n}`, r), To = (e) => Math.round(e).toLocaleString();
+function Eo({ product: e }) {
+	let t = (e) => e === null ? "—" : To(e);
 	return /* @__PURE__ */ (0, Z.jsxs)("p", {
 		className: "nutrition-line",
 		children: [
@@ -27810,14 +27817,14 @@ function To({ product: e }) {
 		]
 	});
 }
-function Eo({ hass: e }) {
-	let [t, n] = (0, l.useState)(() => bo(e.config?.time_zone)), [r, i] = (0, l.useState)(null), [a, o] = (0, l.useState)(null), [s, c] = (0, l.useState)([]), [u, d] = (0, l.useState)([]), [f, p] = (0, l.useState)(null), [m, h] = (0, l.useState)(!1), [g, _] = (0, l.useState)(""), [v, y] = (0, l.useState)("servings"), [b, x] = (0, l.useState)("1"), [S, C] = (0, l.useState)(() => xo(/* @__PURE__ */ new Date(), e.config?.time_zone)), [w, T] = (0, l.useState)(""), [E, D] = (0, l.useState)(!1), [ee, O] = (0, l.useState)(""), [te, k] = (0, l.useState)(!1), [A, ne] = (0, l.useState)(!1), [re, j] = (0, l.useState)(!1), ie = (0, l.useCallback)(async () => {
+function Do({ hass: e }) {
+	let [t, n] = (0, l.useState)(() => xo(e.config?.time_zone)), [r, i] = (0, l.useState)(null), [a, o] = (0, l.useState)(null), [s, c] = (0, l.useState)([]), [u, d] = (0, l.useState)([]), [f, p] = (0, l.useState)(null), [m, h] = (0, l.useState)(!1), [g, _] = (0, l.useState)(""), [v, y] = (0, l.useState)("servings"), [b, x] = (0, l.useState)("1"), [S, C] = (0, l.useState)(() => So(/* @__PURE__ */ new Date(), e.config?.time_zone)), [w, T] = (0, l.useState)(""), [E, D] = (0, l.useState)(!1), [ee, O] = (0, l.useState)(""), [te, k] = (0, l.useState)(!1), [A, ne] = (0, l.useState)(!1), [re, j] = (0, l.useState)(!1), ie = (0, l.useCallback)(async () => {
 		try {
 			let [n, r, a, s] = await Promise.all([
-				Co(e, "GET", "me"),
-				Co(e, "GET", `totals?date=${t}`),
-				Co(e, "GET", `meals?date=${t}`),
-				Co(e, "GET", `products?q=${encodeURIComponent(g)}`)
+				wo(e, "GET", "me"),
+				wo(e, "GET", `totals?date=${t}`),
+				wo(e, "GET", `meals?date=${t}`),
+				wo(e, "GET", `products?q=${encodeURIComponent(g)}`)
 			]);
 			i(n), o(r), c(a), d(s);
 		} catch (e) {
@@ -27834,7 +27841,7 @@ function Eo({ hass: e }) {
 	let M = (0, l.useCallback)(async (t, n = !1) => {
 		D(!0), O("Looking up product…");
 		try {
-			let r = await Co(e, "GET", `products/lookup?upc=${encodeURIComponent(t)}${n ? "&refresh=true" : ""}`);
+			let r = await wo(e, "GET", `products/lookup?upc=${encodeURIComponent(t)}${n ? "&refresh=true" : ""}`);
 			r ? (p(r), h(!1), T(t), x("1"), y("servings"), O(`Found via ${r.source.replaceAll("_", " ")}. Review before logging.`)) : (p(null), h(!1), T(t), O("No nutrition match. Scan the nutrition label to add this product."));
 		} catch (e) {
 			O(e instanceof Error ? e.message : "Product lookup failed.");
@@ -27849,9 +27856,9 @@ function Eo({ hass: e }) {
 		if (f) {
 			D(!0);
 			try {
-				await Co(e, "POST", "meals", {
+				await wo(e, "POST", "meals", {
 					product_id: f.id,
-					consumed_at: So(S, e.config?.time_zone),
+					consumed_at: Co(S, e.config?.time_zone),
 					amount_mode: v,
 					amount: Number(b)
 				}), p(null), T(""), O("Meal logged."), await ie();
@@ -27863,7 +27870,7 @@ function Eo({ hass: e }) {
 		}
 	}, se = async (t) => {
 		try {
-			let n = await Co(e, "POST", "products", {
+			let n = await wo(e, "POST", "products", {
 				upc: w || null,
 				name: t.name || `Scanned food ${(/* @__PURE__ */ new Date()).toLocaleDateString()}`,
 				source: "label",
@@ -27882,7 +27889,7 @@ function Eo({ hass: e }) {
 		t.preventDefault();
 		let n = new FormData(t.currentTarget);
 		try {
-			let t = await Co(e, "PUT", "me/targets", {
+			let t = await wo(e, "PUT", "me/targets", {
 				calorie_target: Number(n.get("calories")),
 				protein_target_g: Number(n.get("protein")),
 				carbs_target_g: Number(n.get("carbs")),
@@ -27899,7 +27906,7 @@ function Eo({ hass: e }) {
 			return t ? Number(t) : null;
 		};
 		try {
-			let t = await Co(e, "PATCH", `products/${f.id}`, {
+			let t = await wo(e, "PATCH", `products/${f.id}`, {
 				name: String(n.get("product_name") ?? f.name).trim(),
 				brand: String(n.get("brand") ?? "").trim() || null,
 				serving_size: String(n.get("serving_size") ?? "").trim() || null,
@@ -27914,17 +27921,17 @@ function Eo({ hass: e }) {
 			O(e instanceof Error ? e.message : "Could not update product facts.");
 		}
 	}, P = (t) => {
-		p(t), h(!1), T(t.upc ?? ""), x("1"), y("servings"), C(xo(/* @__PURE__ */ new Date(), e.config?.time_zone));
+		p(t), h(!1), T(t.upc ?? ""), x("1"), y("servings"), C(So(/* @__PURE__ */ new Date(), e.config?.time_zone));
 	}, F = async (t) => {
 		let n = window.prompt("Amount consumed:", String(t.amount));
 		if (n === null || !Number.isFinite(Number(n)) || Number(n) <= 0) return;
-		let r = window.prompt("Local date and time (YYYY-MM-DDTHH:mm):", xo(new Date(t.consumed_at), e.config?.time_zone));
-		r !== null && (await Co(e, "PATCH", `meals/${t.id}`, {
+		let r = window.prompt("Local date and time (YYYY-MM-DDTHH:mm):", So(new Date(t.consumed_at), e.config?.time_zone));
+		r !== null && (await wo(e, "PATCH", `meals/${t.id}`, {
 			amount: Number(n),
-			consumed_at: So(r, e.config?.time_zone)
+			consumed_at: Co(r, e.config?.time_zone)
 		}), await ie());
 	}, ue = async (t) => {
-		window.confirm(`Delete ${t.product.name} from this day?`) && (await Co(e, "DELETE", `meals/${t.id}`), await ie());
+		window.confirm(`Delete ${t.product.name} from this day?`) && (await wo(e, "DELETE", `meals/${t.id}`), await ie());
 	}, de = (0, l.useMemo)(() => !a || !r ? [
 		0,
 		0,
@@ -27942,17 +27949,29 @@ function Eo({ hass: e }) {
 			/* @__PURE__ */ (0, Z.jsxs)("header", {
 				className: "topbar",
 				children: [/* @__PURE__ */ (0, Z.jsxs)("div", {
-					className: "brand-lockup",
-					children: [/* @__PURE__ */ (0, Z.jsx)("span", {
-						className: "brand-mark",
-						"aria-hidden": "true",
+					className: "topbar-left",
+					children: [/* @__PURE__ */ (0, Z.jsx)("button", {
+						className: "icon-button ha-menu-button",
+						onClick: yo,
+						"aria-label": "Open Home Assistant menu",
 						children: /* @__PURE__ */ (0, Z.jsx)("svg", {
 							viewBox: "0 0 24 24",
-							children: /* @__PURE__ */ (0, Z.jsx)("path", { d: "M19.8 4.2C12.9 4.4 7.4 5.8 5 9.7c-1.5 2.5-.6 5.7 1.8 6.7 2.3 1 4.8-.4 5.8-2.6.9-1.9 2.5-4.7 7.2-8.4ZM5.2 20c2.4-4.8 5.7-8.2 10.1-10.6" })
+							"aria-hidden": "true",
+							children: /* @__PURE__ */ (0, Z.jsx)("path", { d: "M4 6h16M4 12h16M4 18h16" })
 						})
-					}), /* @__PURE__ */ (0, Z.jsx)("span", {
-						className: "brand-name",
-						children: "NOURISH"
+					}), /* @__PURE__ */ (0, Z.jsxs)("div", {
+						className: "brand-lockup",
+						children: [/* @__PURE__ */ (0, Z.jsx)("span", {
+							className: "brand-mark",
+							"aria-hidden": "true",
+							children: /* @__PURE__ */ (0, Z.jsx)("svg", {
+								viewBox: "0 0 24 24",
+								children: /* @__PURE__ */ (0, Z.jsx)("path", { d: "M19.8 4.2C12.9 4.4 7.4 5.8 5 9.7c-1.5 2.5-.6 5.7 1.8 6.7 2.3 1 4.8-.4 5.8-2.6.9-1.9 2.5-4.7 7.2-8.4ZM5.2 20c2.4-4.8 5.7-8.2 10.1-10.6" })
+							})
+						}), /* @__PURE__ */ (0, Z.jsx)("span", {
+							className: "brand-name",
+							children: "NOURISH"
+						})]
 					})]
 				}), /* @__PURE__ */ (0, Z.jsx)("button", {
 					className: "icon-button",
@@ -28006,16 +28025,16 @@ function Eo({ hass: e }) {
 					}),
 					/* @__PURE__ */ (0, Z.jsxs)("div", {
 						className: "calorie-total",
-						children: [/* @__PURE__ */ (0, Z.jsxs)("strong", { children: [wo(a?.calories ?? 0), /* @__PURE__ */ (0, Z.jsx)("span", { children: "kcal" })] }), /* @__PURE__ */ (0, Z.jsxs)("span", {
+						children: [/* @__PURE__ */ (0, Z.jsxs)("strong", { children: [To(a?.calories ?? 0), /* @__PURE__ */ (0, Z.jsx)("span", { children: "kcal" })] }), /* @__PURE__ */ (0, Z.jsxs)("span", {
 							className: "goal-copy",
 							children: [
 								"of ",
-								wo(r?.calorie_target ?? 0),
+								To(r?.calorie_target ?? 0),
 								" kcal goal"
 							]
 						})]
 					}),
-					/* @__PURE__ */ (0, Z.jsx)(Do, {
+					/* @__PURE__ */ (0, Z.jsx)(Oo, {
 						label: "Calories",
 						current: a?.calories ?? 0,
 						target: r?.calorie_target ?? 0,
@@ -28024,21 +28043,21 @@ function Eo({ hass: e }) {
 					/* @__PURE__ */ (0, Z.jsxs)("div", {
 						className: "macro-grid",
 						children: [
-							/* @__PURE__ */ (0, Z.jsx)(Do, {
+							/* @__PURE__ */ (0, Z.jsx)(Oo, {
 								label: "Protein",
 								current: a?.protein_g ?? 0,
 								target: r?.protein_target_g ?? 0,
 								percent: de[1] ?? 0,
 								unit: "g"
 							}),
-							/* @__PURE__ */ (0, Z.jsx)(Do, {
+							/* @__PURE__ */ (0, Z.jsx)(Oo, {
 								label: "Carbs",
 								current: a?.carbs_g ?? 0,
 								target: r?.carbs_target_g ?? 0,
 								percent: de[2] ?? 0,
 								unit: "g"
 							}),
-							/* @__PURE__ */ (0, Z.jsx)(Do, {
+							/* @__PURE__ */ (0, Z.jsx)(Oo, {
 								label: "Fat",
 								current: a?.fat_g ?? 0,
 								target: r?.fat_target_g ?? 0,
@@ -28049,7 +28068,7 @@ function Eo({ hass: e }) {
 					}),
 					/* @__PURE__ */ (0, Z.jsxs)("p", {
 						className: "remaining-copy",
-						children: [wo(I), " kcal remaining today"]
+						children: [To(I), " kcal remaining today"]
 					})
 				]
 			}),
@@ -28149,7 +28168,7 @@ function Eo({ hass: e }) {
 							children: "×"
 						})]
 					}),
-					/* @__PURE__ */ (0, Z.jsx)(To, { product: f }),
+					/* @__PURE__ */ (0, Z.jsx)(Eo, { product: f }),
 					!fe && /* @__PURE__ */ (0, Z.jsx)("p", {
 						className: "error-message",
 						children: "Fill in all four nutrition values before logging this product."
@@ -28313,7 +28332,7 @@ function Eo({ hass: e }) {
 							onClick: () => P(e),
 							children: [
 								/* @__PURE__ */ (0, Z.jsxs)("span", { children: [/* @__PURE__ */ (0, Z.jsx)("strong", { children: e.name }), /* @__PURE__ */ (0, Z.jsx)("small", { children: e.serving_size || "Serving details unavailable" })] }),
-								/* @__PURE__ */ (0, Z.jsx)(To, { product: e }),
+								/* @__PURE__ */ (0, Z.jsx)(Eo, { product: e }),
 								/* @__PURE__ */ (0, Z.jsx)("span", {
 									"aria-hidden": "true",
 									children: "›"
@@ -28363,13 +28382,13 @@ function Eo({ hass: e }) {
 						}),
 						/* @__PURE__ */ (0, Z.jsxs)("div", {
 							className: "meal-nutrition",
-							children: [/* @__PURE__ */ (0, Z.jsxs)("strong", { children: [wo(t.calories), " kcal"] }), /* @__PURE__ */ (0, Z.jsxs)("small", { children: [
+							children: [/* @__PURE__ */ (0, Z.jsxs)("strong", { children: [To(t.calories), " kcal"] }), /* @__PURE__ */ (0, Z.jsxs)("small", { children: [
 								"P ",
-								wo(t.protein_g),
+								To(t.protein_g),
 								" · C ",
-								wo(t.carbs_g),
+								To(t.carbs_g),
 								" · F ",
-								wo(t.fat_g),
+								To(t.fat_g),
 								"g"
 							] })]
 						}),
@@ -28388,11 +28407,11 @@ function Eo({ hass: e }) {
 					]
 				}, t.id))]
 			}),
-			te && /* @__PURE__ */ (0, Z.jsx)(Mo, {
+			te && /* @__PURE__ */ (0, Z.jsx)(No, {
 				onClose: () => k(!1),
 				onScan: N
 			}),
-			A && /* @__PURE__ */ (0, Z.jsx)(Fo, {
+			A && /* @__PURE__ */ (0, Z.jsx)(Io, {
 				onClose: () => ne(!1),
 				onExtract: (e) => void se(e)
 			}),
@@ -28403,25 +28422,25 @@ function Eo({ hass: e }) {
 					onSubmit: (e) => void ce(e),
 					children: [
 						/* @__PURE__ */ (0, Z.jsx)("h2", { children: "Daily targets" }),
-						/* @__PURE__ */ (0, Z.jsx)(Oo, {
+						/* @__PURE__ */ (0, Z.jsx)(ko, {
 							label: "Calories",
 							name: "calories",
 							unit: "kcal",
 							value: r.calorie_target
 						}),
-						/* @__PURE__ */ (0, Z.jsx)(Oo, {
+						/* @__PURE__ */ (0, Z.jsx)(ko, {
 							label: "Protein",
 							name: "protein",
 							unit: "g",
 							value: r.protein_target_g
 						}),
-						/* @__PURE__ */ (0, Z.jsx)(Oo, {
+						/* @__PURE__ */ (0, Z.jsx)(ko, {
 							label: "Carbs",
 							name: "carbs",
 							unit: "g",
 							value: r.carbs_target_g
 						}),
-						/* @__PURE__ */ (0, Z.jsx)(Oo, {
+						/* @__PURE__ */ (0, Z.jsx)(ko, {
 							label: "Fat",
 							name: "fat",
 							unit: "g",
@@ -28446,16 +28465,16 @@ function Eo({ hass: e }) {
 		]
 	});
 }
-function Do({ label: e, current: t, target: n, percent: r, unit: i = "" }) {
+function Oo({ label: e, current: t, target: n, percent: r, unit: i = "" }) {
 	return /* @__PURE__ */ (0, Z.jsxs)("div", {
 		className: "progress-block",
 		children: [/* @__PURE__ */ (0, Z.jsxs)("div", {
 			className: "progress-label",
 			children: [/* @__PURE__ */ (0, Z.jsx)("span", { children: e }), /* @__PURE__ */ (0, Z.jsxs)("strong", { children: [
-				wo(t),
+				To(t),
 				i,
 				" / ",
-				wo(n),
+				To(n),
 				i
 			] })]
 		}), /* @__PURE__ */ (0, Z.jsx)("div", {
@@ -28467,7 +28486,7 @@ function Do({ label: e, current: t, target: n, percent: r, unit: i = "" }) {
 		})]
 	});
 }
-function Oo({ label: e, name: t, unit: n, value: r }) {
+function ko({ label: e, name: t, unit: n, value: r }) {
 	return /* @__PURE__ */ (0, Z.jsxs)("label", {
 		className: "target-field",
 		children: [
@@ -28486,13 +28505,13 @@ function Oo({ label: e, name: t, unit: n, value: r }) {
 		]
 	});
 }
-function ko(e) {
+function Ao(e) {
 	return e instanceof DOMException || e instanceof Error ? e.name : "";
 }
-function Ao(e) {
+function jo(e) {
 	if (!window.isSecureContext) return "Camera access needs a secure Home Assistant connection (HTTPS). You can still enter the barcode below.";
 	if (!navigator.mediaDevices?.getUserMedia) return "This Home Assistant app/browser does not provide camera access to this page. Enter the barcode manually instead.";
-	switch (ko(e)) {
+	switch (Ao(e)) {
 		case "NotAllowedError":
 		case "SecurityError": return "Camera access was blocked by the app or browser. Check both the Home Assistant app permission and this site’s camera permission, then reopen the scanner.";
 		case "NotFoundError":
@@ -28504,42 +28523,66 @@ function Ao(e) {
 		default: return "The camera could not start. Check the app and site permissions, or enter the barcode manually.";
 	}
 }
-function jo(e) {
+function Mo(e) {
 	return [
 		"OverconstrainedError",
 		"NotFoundError",
 		"DevicesNotFoundError"
-	].includes(ko(e));
+	].includes(Ao(e));
 }
-function Mo({ onScan: e, onClose: t }) {
-	let n = (0, l.useRef)(null), r = (0, l.useRef)(null), [i, a] = (0, l.useState)("");
-	return (0, l.useEffect)(() => {
-		let t = new po(), i = !0, o = n.current;
-		return o ? !window.isSecureContext || !navigator.mediaDevices?.getUserMedia ? (a(Ao(/* @__PURE__ */ Error("Camera API unavailable"))), () => {
-			i = !1, r.current?.stop();
+function No({ onScan: e, onClose: t }) {
+	let n = (0, l.useRef)(null), r = (0, l.useRef)(null), i = (0, l.useRef)(e), a = (0, l.useRef)(!1), [o, s] = (0, l.useState)(""), [c, u] = (0, l.useState)(!1), [d, f] = (0, l.useState)(!1), [p, m] = (0, l.useState)(!1);
+	(0, l.useEffect)(() => {
+		i.current = e;
+	}, [e]), (0, l.useEffect)(() => {
+		let e = new po(), t = !0, o = null, c = n.current;
+		return c ? !window.isSecureContext || !navigator.mediaDevices?.getUserMedia ? (s(jo(/* @__PURE__ */ Error("Camera API unavailable"))), () => {
+			t = !1, r.current?.stop();
 		}) : ((async () => {
-			for (let [n, a] of [{
+			for (let [n, s] of [{
 				video: { facingMode: { ideal: "environment" } },
 				audio: !1
 			}, {
 				video: !0,
 				audio: !1
 			}].entries()) try {
-				let n = await t.decodeFromConstraints(a, o, (t, n, a) => {
-					r.current = a, i && t && (i = !1, a.stop(), e(t.getText()));
+				let n = await e.decodeFromConstraints(s, c, (e, n, o) => {
+					r.current = o, t && e && !a.current && (a.current = !0, t = !1, o.stop(), i.current(e.getText()));
 				});
-				i ? r.current = n : n.stop();
+				if (o = n, !t) n.stop();
+				else {
+					r.current = n;
+					let e = c.srcObject;
+					if (e instanceof MediaStream) {
+						let t = e.getVideoTracks()[0]?.getCapabilities();
+						u(!!t?.torch);
+					}
+				}
 				return;
 			} catch (e) {
-				if (n === 0 && jo(e)) continue;
+				if (n === 0 && Mo(e)) continue;
 				throw e;
 			}
 		})().catch((e) => {
-			i && a(Ao(e));
+			t && s(jo(e));
 		}), () => {
-			i = !1, r.current?.stop();
+			t = !1, o?.stop(), r.current = null;
 		}) : void 0;
-	}, [e]), /* @__PURE__ */ (0, Z.jsx)("div", {
+	}, []);
+	let h = async () => {
+		let e = n.current?.srcObject, t = e instanceof MediaStream ? e.getVideoTracks()[0] : void 0;
+		if (!t || !c || p) return;
+		let r = !d;
+		m(!0);
+		try {
+			await t.applyConstraints({ advanced: [{ torch: r }] }), f(r), s("");
+		} catch {
+			s("This camera could not change its flash setting. You can continue scanning without it.");
+		} finally {
+			m(!1);
+		}
+	};
+	return /* @__PURE__ */ (0, Z.jsx)("div", {
 		className: "modal-backdrop",
 		children: /* @__PURE__ */ (0, Z.jsxs)("section", {
 			className: "camera-modal",
@@ -28558,21 +28601,36 @@ function Mo({ onScan: e, onClose: t }) {
 				}),
 				/* @__PURE__ */ (0, Z.jsxs)("div", {
 					className: "camera-frame",
-					children: [/* @__PURE__ */ (0, Z.jsx)("video", {
-						ref: n,
-						muted: !0,
-						playsInline: !0,
-						"aria-label": "Barcode camera preview"
-					}), /* @__PURE__ */ (0, Z.jsx)("div", { className: "barcode-guide" })]
+					children: [
+						/* @__PURE__ */ (0, Z.jsx)("video", {
+							ref: n,
+							muted: !0,
+							playsInline: !0,
+							"aria-label": "Barcode camera preview"
+						}),
+						/* @__PURE__ */ (0, Z.jsx)("div", { className: "barcode-guide" }),
+						c && /* @__PURE__ */ (0, Z.jsxs)("button", {
+							className: `torch-button${d ? " torch-button-on" : ""}`,
+							onClick: () => void h(),
+							disabled: p,
+							"aria-label": d ? "Turn flash off" : "Turn flash on",
+							"aria-pressed": d,
+							children: [/* @__PURE__ */ (0, Z.jsx)("svg", {
+								viewBox: "0 0 24 24",
+								"aria-hidden": "true",
+								children: /* @__PURE__ */ (0, Z.jsx)("path", { d: "M13 2 4.5 13h6l-.5 9 9-12h-6l.5-8Z" })
+							}), p ? "Changing…" : d ? "Flash on" : "Flash"]
+						})
+					]
 				}),
 				/* @__PURE__ */ (0, Z.jsx)("p", {
 					className: "muted camera-tip",
 					children: "Hold the barcode steady inside the frame."
 				}),
-				i && /* @__PURE__ */ (0, Z.jsx)("p", {
+				o && /* @__PURE__ */ (0, Z.jsx)("p", {
 					role: "alert",
 					className: "error-message",
-					children: i
+					children: o
 				}),
 				/* @__PURE__ */ (0, Z.jsx)("button", {
 					className: "secondary-button full-button",
@@ -28583,7 +28641,7 @@ function Mo({ onScan: e, onClose: t }) {
 		})
 	});
 }
-function No(e) {
+function Po(e) {
 	let t = (t) => {
 		let n = e.match(t);
 		if (!n?.[1]) return null;
@@ -28600,7 +28658,7 @@ function No(e) {
 		fat: t(/total fat\s*[:\-]?\s*(\d+(?:[.,]\d+)?)/i)
 	};
 }
-function Po(e, t) {
+function Fo(e, t) {
 	let n = t.getContext("2d", { willReadFrequently: !0 });
 	if (!n || !e.videoWidth) return 0;
 	let r = Math.max(1, Math.round(e.videoHeight / e.videoWidth * 160));
@@ -28613,7 +28671,7 @@ function Po(e, t) {
 	let c = s ? o / s - (a / s) ** 2 : 0;
 	return Math.max(0, Math.min(100, Math.round(c / 18)));
 }
-function Fo({ onExtract: t, onClose: n }) {
+function Io({ onExtract: t, onClose: n }) {
 	let r = (0, l.useRef)(null), i = (0, l.useRef)(null), a = (0, l.useRef)(null), [o, s] = (0, l.useState)(0), [c, u] = (0, l.useState)(""), [d, f] = (0, l.useState)(""), [p, m] = (0, l.useState)(!1), [h, g] = (0, l.useState)("");
 	(0, l.useEffect)(() => {
 		if (c) return;
@@ -28626,7 +28684,7 @@ function Fo({ onExtract: t, onClose: n }) {
 					audio: !1
 				});
 			} catch (e) {
-				if (!jo(e)) throw e;
+				if (!Mo(e)) throw e;
 				return navigator.mediaDevices.getUserMedia({
 					video: !0,
 					audio: !1
@@ -28634,10 +28692,10 @@ function Fo({ onExtract: t, onClose: n }) {
 			}
 		})().then(async (n) => {
 			t ? (a.current = n, r.current && (r.current.srcObject = n, await r.current.play()), e = window.setInterval(() => {
-				r.current && i.current && s(Po(r.current, i.current));
+				r.current && i.current && s(Fo(r.current, i.current));
 			}, 400)) : n.getTracks().forEach((e) => e.stop());
 		}).catch((e) => {
-			a.current?.getTracks().forEach((e) => e.stop()), a.current = null, t && g(Ao(e));
+			a.current?.getTracks().forEach((e) => e.stop()), a.current = null, t && g(jo(e));
 		}), () => {
 			t = !1, window.clearInterval(e), a.current?.getTracks().forEach((e) => e.stop()), a.current = null;
 		};
@@ -28663,7 +28721,7 @@ function Fo({ onExtract: t, onClose: n }) {
 				m(!1);
 			}
 		}
-	}, v = () => t(No(d)), y = o >= 35 && !p;
+	}, v = () => t(Po(d)), y = o >= 35 && !p;
 	return /* @__PURE__ */ (0, Z.jsx)("div", {
 		className: "modal-backdrop",
 		children: /* @__PURE__ */ (0, Z.jsxs)("section", {
@@ -28738,8 +28796,9 @@ function Fo({ onExtract: t, onClose: n }) {
 	});
 }
 // src/panel.tsx
-var Io = "/calorie-tracker-assets/ha-calorie-tracker-frontend.css", Lo = class extends HTMLElement {
+var Lo = "/calorie-tracker-assets/ha-calorie-tracker-frontend.css", Ro = class extends HTMLElement {
 	root;
+	appRoot;
 	currentHass;
 	set hassObject(e) {
 		this.currentHass = e, this.renderApp();
@@ -28748,15 +28807,15 @@ var Io = "/calorie-tracker-assets/ha-calorie-tracker-frontend.css", Lo = class e
 		this.hassObject = e;
 	}
 	connectedCallback() {
-		let e = this.getRootNode(), t = e.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? e : document.head;
-		if (!t.querySelector("link[data-calorie-tracker-styles]")) {
-			let e = document.createElement("link");
-			e.rel = "stylesheet", e.href = Io, e.dataset.calorieTrackerStyles = "true", t.append(e);
+		let e = this.shadowRoot ?? this.attachShadow({ mode: "open" });
+		if (!e.querySelector("link[data-calorie-tracker-styles]")) {
+			let t = document.createElement("link");
+			t.rel = "stylesheet", t.href = Lo, t.dataset.calorieTrackerStyles = "true", e.append(t);
 		}
-		this.renderApp();
+		this.appRoot = e.querySelector("[data-calorie-tracker-root]") ?? void 0, this.appRoot || (this.appRoot = document.createElement("div"), this.appRoot.dataset.calorieTrackerRoot = "true", e.append(this.appRoot)), this.renderApp();
 	}
 	renderApp() {
-		this.currentHass && this.isConnected && (this.root ??= (0, u.createRoot)(this), this.root.render(/* @__PURE__ */ (0, Z.jsx)(Eo, { hass: this.currentHass })));
+		this.currentHass && this.isConnected && this.appRoot && (this.root ??= (0, u.createRoot)(this.appRoot), this.root.render(/* @__PURE__ */ (0, Z.jsx)(Do, { hass: this.currentHass })));
 	}
 };
-customElements.get("ha-calorie-tracker-panel") || customElements.define("ha-calorie-tracker-panel", Lo);
+customElements.get("ha-calorie-tracker-panel") || customElements.define("ha-calorie-tracker-panel", Ro);
